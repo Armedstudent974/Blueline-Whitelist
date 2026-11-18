@@ -207,7 +207,7 @@ export async function handleInteraction(request, env, ctx) {
       if (id === 'app_submit') {
         ctx.waitUntil((async () => {
           try { await editOriginal(env, i, await onSubmit(env, user)); }
-          catch (e) { console.log('submit error', e.stack); await editOriginal(env, i, { content: '⚠️ Something went wrong submitting. Please try again.' }); }
+          catch (e) { console.log('submit error', e.stack); await env.DB.prepare("INSERT INTO kv (k, v) VALUES ('last_error', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(new Date().toISOString() + ' submit: ' + (e.stack || e.message)).run().catch(() => {}); await editOriginal(env, i, { content: '⚠️ Something went wrong submitting. Please try again.' }); }
         })());
         return json({ type: 6 });
       }
@@ -243,6 +243,7 @@ function deferredApply(i, env, ctx, user, typeId) {
       await editOriginal(env, i, { content: (r.ok ? '' : '❌ ') + r.reason });
     } catch (e) {
       console.log('apply error', e.stack);
+      await env.DB.prepare("INSERT INTO kv (k, v) VALUES ('last_error', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(new Date().toISOString() + ' apply: ' + (e.stack || e.message)).run().catch(() => {});
       await editOriginal(env, i, { content: '⚠️ Something went wrong starting your application. Please try again.' });
     }
   })());
