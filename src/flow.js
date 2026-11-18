@@ -247,12 +247,13 @@ export async function onSubmit(env, user) {
   // 1) webhook (as requested)
   const hook = cfg.webhook_url || env.DEFAULT_WEBHOOK_URL;
   if (hook) {
-    try { await postEmbedsToWebhook(hook, embeds); } catch (e) { console.log('webhook failed', e.message); }
+    // ping roles where staff review: the review channel if set, otherwise the webhook post
+    try { await postEmbedsToWebhook(hook, embeds, cfg.review_channel_id ? null : pingFor(cfg, name)); } catch (e) { console.log('webhook failed', e.message); }
   }
   // 2) review channel with Approve / Deny buttons
   if (cfg.review_channel_id) {
     try {
-      const m = await postReviewMessage(env, cfg.review_channel_id, embeds, appId);
+      const m = await postReviewMessage(env, cfg.review_channel_id, embeds, appId, pingFor(cfg, name));
       await env.DB.prepare('UPDATE applications SET review_channel_id=?, review_message_id=? WHERE id=?').bind(cfg.review_channel_id, m.id, appId).run();
     } catch (e) { console.log('review post failed', e.message); }
   }
@@ -277,9 +278,22 @@ export function submissionEmbeds(app) {
   });
 }
 
-async function postEmbedsToWebhook(url, embeds) {
+// Role ping line for new submissions (approver + staff roles, no duplicates)
+function pingFor(cfg, name) {
+  const roles = [...new Set([...(cfg.approver_roles || []), ...(cfg.staff_roles || [])])].filter((r) => /^\d+$/.test(r));
+  if (!roles.length) return { content: undefined, allowed_mentions: { parse: [] } };
+  return {
+    content: `${roles.map((r) => `<@&${r}>`).join(' ')} — new application from **${trunc(name, 100)}** is waiting for review.`,
+    allowed_mentions: { parse: [], roles },
+  };
+}
+
+async function postEmbedsToWebhook(url, embeds, ping) {
   // max 10 embeds & 6000 chars per message — send each embed group separately to be safe
-  for (const e of embeds) await webhookPost(url, { username: 'Applications', embeds: [e], allowed_mentions: { parse: [] } });
+  for (let i = 0; i < embeds.length; i++) {
+    const p = i === 0 && ping ? ping : { allowed_mentions: { parse: [] } };
+    await webhookPost(url, { username: 'Applications', embeds: [embeds[i]], ...p });
+  }
 }
 
 function reviewButtons(appId) {
@@ -292,11 +306,12 @@ function reviewButtons(appId) {
   }];
 }
 
-async function postReviewMessage(env, channelId, embeds, appId) {
+async function postReviewMessage(env, channelId, embeds, appId, ping) {
   let first;
   for (let i = 0; i < embeds.length; i++) {
     const last = i === embeds.length - 1;
-    const m = await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: [embeds[i]], components: last ? reviewButtons(appId) : [], allowed_mentions: { parse: [] } });
+    const p = i === 0 && ping ? ping : { allowed_mentions: { parse: [] } };
+    const m = await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: [embeds[i]], components: last ? reviewButtons(appId) : [], ...p });
     if (last) first = m;
   }
   return first;
