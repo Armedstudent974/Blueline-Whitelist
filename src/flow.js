@@ -366,8 +366,12 @@ export async function decide(env, appId, decision, reasonIdx, actor) {
   // accept role
   if (approved && app.app_type_id) {
     const type = await getType(env, app.app_type_id);
+    const why = { reason: `Application #${appId} approved by ${actor.name}` };
     if (type?.accept_role_id) {
-      tasks.push(dapi(env, 'PUT', `/guilds/${app.guild_id}/members/${app.user_id}/roles/${type.accept_role_id}`, undefined, { reason: `Application #${appId} approved by ${actor.name}` }).catch((e) => console.log('role fail', e.message)));
+      tasks.push(dapi(env, 'PUT', `/guilds/${app.guild_id}/members/${app.user_id}/roles/${type.accept_role_id}`, undefined, why).catch((e) => console.log('role add fail', e.message)));
+    }
+    if (type?.remove_role_id && type.remove_role_id !== type.accept_role_id) {
+      tasks.push(dapi(env, 'DELETE', `/guilds/${app.guild_id}/members/${app.user_id}/roles/${type.remove_role_id}`, undefined, why).catch((e) => console.log('role remove fail', e.message)));
     }
   }
 

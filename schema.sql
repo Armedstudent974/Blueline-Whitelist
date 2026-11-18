@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS app_types (
   questions TEXT DEFAULT '[]',
   enabled INTEGER DEFAULT 1,
   accept_role_id TEXT,
+  remove_role_id TEXT,
   button_style INTEGER DEFAULT 1,
   created_at INTEGER
 );

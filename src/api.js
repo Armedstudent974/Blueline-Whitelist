@@ -196,13 +196,14 @@ export async function handleApi(req, env, url) {
         questions: (Array.isArray(b.questions) ? b.questions : []).map((q) => String(q).trim().slice(0, 1000)).filter(Boolean).slice(0, 50),
         enabled: b.enabled ? 1 : 0,
         accept_role_id: /^\d+$/.test(b.accept_role_id || '') ? b.accept_role_id : null,
+        remove_role_id: /^\d+$/.test(b.remove_role_id || '') ? b.remove_role_id : null,
         button_style: [1, 2, 3, 4].includes(+b.button_style) ? +b.button_style : 1,
       });
       if (method === 'POST') {
         const t = clean(body);
         if (!t.name) return err('Name is required');
-        const r = await env.DB.prepare('INSERT INTO app_types (guild_id, name, description, questions, enabled, accept_role_id, button_style, created_at) VALUES (?,?,?,?,?,?,?,?)')
-          .bind(gid, t.name, t.description, JSON.stringify(t.questions), t.enabled, t.accept_role_id, t.button_style, now()).run();
+        const r = await env.DB.prepare('INSERT INTO app_types (guild_id, name, description, questions, enabled, accept_role_id, remove_role_id, button_style, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+          .bind(gid, t.name, t.description, JSON.stringify(t.questions), t.enabled, t.accept_role_id, t.remove_role_id, t.button_style, now()).run();
         await addLog(env, { guild_id: gid, action: 'config', actor_id: actor.id, actor_name: actor.name, detail: `Created application "${t.name}"` });
         return json({ ok: true, id: r.meta.last_row_id });
       }
@@ -212,8 +213,8 @@ export async function handleApi(req, env, url) {
       if (method === 'PUT') {
         const t = clean(body);
         if (!t.name) return err('Name is required');
-        await env.DB.prepare('UPDATE app_types SET name=?, description=?, questions=?, enabled=?, accept_role_id=?, button_style=? WHERE id=?')
-          .bind(t.name, t.description, JSON.stringify(t.questions), t.enabled, t.accept_role_id, t.button_style, tid).run();
+        await env.DB.prepare('UPDATE app_types SET name=?, description=?, questions=?, enabled=?, accept_role_id=?, remove_role_id=?, button_style=? WHERE id=?')
+          .bind(t.name, t.description, JSON.stringify(t.questions), t.enabled, t.accept_role_id, t.remove_role_id, t.button_style, tid).run();
         await addLog(env, { guild_id: gid, action: 'config', actor_id: actor.id, actor_name: actor.name, detail: `Updated application "${t.name}"` });
         return json({ ok: true });
       }

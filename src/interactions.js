@@ -33,6 +33,7 @@ export const COMMANDS = [
           { type: 3, name: 'name', description: 'e.g. Whitelist, Police, EMS', required: true, max_length: 80 },
           { type: 3, name: 'description', description: 'Shown to the applicant before the questions', required: false, max_length: 1000 },
           { type: 8, name: 'accept_role', description: 'Role given automatically when approved', required: false },
+          { type: 8, name: 'remove_role', description: 'Role removed automatically when approved', required: false },
         ],
       },
       {
@@ -138,8 +139,8 @@ export async function handleInteraction(request, env, ctx) {
         const sub = i.data.options[0];
         const so = Object.fromEntries((sub.options || []).map((o) => [o.name, o.value]));
         if (sub.name === 'create') {
-          const r = await env.DB.prepare('INSERT INTO app_types (guild_id, name, description, questions, enabled, accept_role_id, button_style, created_at) VALUES (?,?,?,?,1,?,1,?)')
-            .bind(i.guild_id, so.name, so.description || '', '[]', so.accept_role || null, now()).run();
+          const r = await env.DB.prepare('INSERT INTO app_types (guild_id, name, description, questions, enabled, accept_role_id, remove_role_id, button_style, created_at) VALUES (?,?,?,?,1,?,?,1,?)')
+            .bind(i.guild_id, so.name, so.description || '', '[]', so.accept_role || null, so.remove_role || null, now()).run();
           return reply(`✅ Created **${so.name}** (ID ${r.meta.last_row_id}). Add questions with \`/application add-question\`.`);
         }
         if (sub.name === 'list') {

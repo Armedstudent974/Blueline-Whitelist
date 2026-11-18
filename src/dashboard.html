@@ -263,6 +263,7 @@ function typeCard(t){
   <div class="tb">
     <div class="grid2"><div><label>Name</label><input data-f="name" value="${esc(t.name)}"></div>
     <div><label>Role given on approval</label><select data-f="accept_role_id">${roleOpts(t.accept_role_id)}</select></div></div>
+    <div class="grid2"><div><label>Role removed on approval</label><select data-f="remove_role_id">${roleOpts(t.remove_role_id)}</select></div><div></div></div>
     <label>Intro message (shown before the questions)</label><textarea data-f="description">${esc(t.description||'')}</textarea>
     <div class="grid2"><div><label>Button colour</label><select data-f="button_style">${[[1,'Blurple'],[2,'Grey'],[3,'Green'],[4,'Red']].map(([v,l])=>`<option value="${v}" ${t.button_style==v?'selected':''}>${l}</option>`).join('')}</select></div>
     <div><label class="switch"><input type="checkbox" data-f="enabled" ${t.enabled?'checked':''}> Accepting applications</label></div></div>
@@ -275,7 +276,7 @@ function qRow(q){ return `<div class="q"><span class="num"></span><textarea>${es
 function num(){ document.querySelectorAll('.qs').forEach(qs=>qs.querySelectorAll('.num').forEach((n,i)=>n.textContent=i+1)); }
 function addQ(id){ const qs=$('#tc'+id+' .qs'); qs.insertAdjacentHTML('beforeend',qRow('')); num(); qs.lastElementChild.querySelector('textarea').focus(); }
 function mvQ(b,d){ const r=b.closest('.q'); if(d<0&&r.previousElementSibling) r.parentNode.insertBefore(r,r.previousElementSibling); if(d>0&&r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling,r); num(); }
-function readType(id){ const c=$('#tc'+id); const f=(k)=>c.querySelector(`[data-f=${k}]`); return { name:f('name').value, description:f('description').value, accept_role_id:f('accept_role_id').value, button_style:+f('button_style').value, enabled:f('enabled').checked, questions:[...c.querySelectorAll('.qs textarea')].map(t=>t.value.trim()).filter(Boolean) }; }
+function readType(id){ const c=$('#tc'+id); const f=(k)=>c.querySelector(`[data-f=${k}]`); return { name:f('name').value, description:f('description').value, accept_role_id:f('accept_role_id').value, remove_role_id:f('remove_role_id').value, button_style:+f('button_style').value, enabled:f('enabled').checked, questions:[...c.querySelectorAll('.qs textarea')].map(t=>t.value.trim()).filter(Boolean) }; }
 async function saveType(id){ try{ await api(`/guilds/${S.gid}/types/${id}`,{method:'PUT',body:readType(id)}); toast('Saved — re-post panels to update their buttons'); await selectGuild(S.gid,'types'); $('#tc'+id)?.classList.add('open'); num(); }catch(e){ toast(e.message,true); } }
 async function newType(){ const name=prompt('Application name (e.g. Whitelist, Police, EMS)'); if(!name) return; try{ const r=await api(`/guilds/${S.gid}/types`,{method:'POST',body:{name,enabled:true,questions:['How old are you?','Tell us about your past roleplay experience.','Why do you want to join our server?']}}); await selectGuild(S.gid,'types'); $('#tc'+r.id)?.classList.add('open'); num(); }catch(e){ toast(e.message,true); } }
 async function delType(id){ if(!confirm('Delete this application? Existing submissions stay in the logs.')) return; try{ await api(`/guilds/${S.gid}/types/${id}`,{method:'DELETE'}); toast('Deleted'); selectGuild(S.gid,'types'); }catch(e){ toast(e.message,true); } }
