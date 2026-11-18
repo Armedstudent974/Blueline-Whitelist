@@ -24,7 +24,7 @@ export default {
       if (path === '/invite') return Response.redirect(inviteUrl(env), 302);
       if (path === '/dashboard') {
         const s = await getSession(request, env);
-        if (!s) return Response.redirect(`${env.BASE_URL}/login?next=${encodeURIComponent(path + url.search)}`, 302);
+        if (!s) return Response.redirect(`${url.origin}/login?next=${encodeURIComponent(path + url.search)}`, 302);
         return html(DASHBOARD);
       }
       if (path === '/status') {

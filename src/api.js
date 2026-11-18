@@ -30,7 +30,7 @@ export async function handleAuth(req, env, url) {
     auth.searchParams.set('client_id', env.DISCORD_CLIENT_ID);
     auth.searchParams.set('response_type', 'code');
     auth.searchParams.set('scope', 'identify guilds');
-    auth.searchParams.set('redirect_uri', `${env.BASE_URL}/callback`);
+    auth.searchParams.set('redirect_uri', `${url.origin}/callback`);
     auth.searchParams.set('state', state);
     auth.searchParams.set('prompt', 'none');
     return new Response(null, {
@@ -54,7 +54,7 @@ export async function handleAuth(req, env, url) {
         client_secret: env.DISCORD_CLIENT_SECRET,
         grant_type: 'authorization_code',
         code,
-        redirect_uri: `${env.BASE_URL}/callback`,
+        redirect_uri: `${url.origin}/callback`,
       }),
     });
     if (!tok.ok) return new Response('Login failed: ' + (await tok.text()), { status: 400 });
