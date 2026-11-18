@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blueline Whitelist Applications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#070b14;--panel:#0e1524;--line:#1e2a42;--text:#e7e9ee;--mute:#8b93a1;--accent:#2f7bff;--accent2:#6aa6ff}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+  .grid{position:fixed;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse at 50% 30%,#000 10%,transparent 70%);opacity:.5;pointer-events:none}
+  header{display:flex;justify-content:space-between;align-items:center;padding:22px 40px;position:relative}
+  .logo{font-family:'Chakra Petch';font-weight:700;letter-spacing:.08em;font-size:18px}.logo span{color:var(--accent)}
+  main{flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:40px}
+  .hero{max-width:760px;text-align:center}
+  .tag{display:inline-block;border:1px solid var(--line);background:var(--panel);padding:6px 12px;border-radius:99px;color:var(--mute);font-size:13px;margin-bottom:22px}
+  h1{font-family:'Chakra Petch';font-size:clamp(38px,6vw,64px);line-height:1.02;margin:0 0 18px}
+  h1 em{font-style:normal;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;color:transparent}
+  p{color:var(--mute);font-size:17px;line-height:1.6;margin:0 auto 34px;max-width:560px}
+  .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  a.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:10px;font-weight:600;text-decoration:none;color:#fff;background:var(--accent);transition:.15s}
+  a.btn:hover{transform:translateY(-1px);background:var(--accent2)}
+  a.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}a.btn.ghost:hover{border-color:var(--accent)}
+  .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:56px;text-align:left}
+  .feat div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .feat b{display:block;font-family:'Chakra Petch';margin-bottom:6px}.feat small{color:var(--mute);line-height:1.5}
+  @media(max-width:700px){.feat{grid-template-columns:1fr}}
+  footer{color:var(--mute);font-size:12px;text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<header><div class="logo">BLUE<span>LINE</span> · WHITELIST APPLICATIONS</div><a class="btn ghost" href="/login">Log in</a></header>
+<main><div class="hero">
+  <div class="tag">Blueline Britain · FiveM Roleplay</div>
+  <h1>Blueline <em>Whitelist</em> Applications</h1>
+  <p>Questions delivered straight to applicants' DMs, a review step before they submit, and a dashboard for your staff to approve, deny and track every application across all of your servers.</p>
+  <div class="btns">
+    <a class="btn" href="/login">Open dashboard</a>
+    <a class="btn ghost" href="/invite">Add the bot to a server</a>
+  </div>
+  <div class="feat">
+    <div><b>DM questionnaire</b><small>One question at a time, correct any answer, then submit.</small></div>
+    <div><b>Role-gated reviews</b><small>Only your approver roles can approve or deny — with a required reason.</small></div>
+    <div><b>48h cooldown</b><small>Stops spam re-applications. Staff can reset a user instantly.</small></div>
+  </div>
+</div></main>
+<footer>Blueline Britain · Whitelist Applications</footer>
+</body>
+</html>

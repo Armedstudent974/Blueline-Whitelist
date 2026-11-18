@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Blueline Whitelist Applications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#070b14;--panel:#0e1524;--panel2:#131c2f;--line:#1e2a42;--text:#e7e9ee;--mute:#8b93a1;--accent:#2f7bff;--accent2:#6aa6ff;--green:#2ecc71;--red:#e74c3c;--amber:#f1c40f;--blue:#5865f2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,sans-serif;height:100vh;display:grid;grid-template-columns:76px 1fr;grid-template-rows:60px 1fr;overflow:hidden}
+a{color:var(--accent2)}
+h1,h2,h3{font-family:'Chakra Petch';margin:0}
+.top{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.logo{font-family:'Chakra Petch';font-weight:700;letter-spacing:.08em}.logo span{color:var(--accent)}
+.me{display:flex;align-items:center;gap:10px;color:var(--mute)}.me img{width:30px;height:30px;border-radius:50%}
+.rail{border-right:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:10px}
+.gicon{width:48px;height:48px;border-radius:50%;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-weight:600;cursor:pointer;transition:.15s;position:relative;overflow:hidden;border:2px solid transparent;flex-shrink:0;color:var(--text);text-decoration:none;font-size:13px}
+.gicon img{width:100%;height:100%;object-fit:cover}
+.gicon:hover{border-radius:16px}.gicon.active{border-radius:16px;border-color:var(--accent)}
+.gicon.add{color:var(--green);font-size:24px}
+.sep{width:32px;height:2px;background:var(--line);border-radius:2px}
+main{overflow-y:auto;padding:28px 34px 80px}
+.ghead{display:flex;align-items:center;gap:16px;margin-bottom:22px}
+.ghead img,.ghead .ph{width:56px;height:56px;border-radius:14px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-weight:700}
+.ghead .sub{color:var(--mute);font-size:13px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px;flex-wrap:wrap}
+.tab{padding:10px 14px;cursor:pointer;color:var(--mute);border-bottom:2px solid transparent;font-weight:500;display:flex;gap:8px;align-items:center}
+.tab:hover{color:var(--text)}.tab.active{color:var(--text);border-color:var(--accent)}
+.pill{background:var(--panel2);border-radius:99px;padding:0 8px;font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.stat .n{font-family:'Chakra Petch';font-size:32px;font-weight:700}.stat .l{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px}
+.card h3{margin-bottom:14px;font-size:16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+label{display:block;font-size:12px;color:var(--mute);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;font:inherit}
+textarea{resize:vertical;min-height:70px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;font:inherit;font-weight:600;white-space:nowrap}
+.btn:hover{background:var(--accent2)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}.btn.ghost:hover{border-color:var(--accent)}
+.btn.green{background:var(--green)}.btn.red{background:var(--red);color:#fff}.btn.sm{padding:5px 10px;font-size:12px}
+.apps{display:flex;flex-direction:column;gap:8px}
+.app{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;cursor:pointer}
+.app:hover{border-color:#3a4250}
+.app img{width:40px;height:40px;border-radius:50%}
+.app .meta{flex:1;min-width:0}.app .meta b{display:block}.app .meta small{color:var(--mute)}
+.badge{font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.badge.submitted{background:#f1c40f22;color:var(--amber)}.badge.approved{background:#2ecc7122;color:var(--green)}.badge.denied{background:#e74c3c22;color:var(--red)}
+.empty{color:var(--mute);text-align:center;padding:40px;border:1px dashed var(--line);border-radius:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:var(--panel2);border:1px solid var(--line);padding:4px 10px;border-radius:99px;font-size:12px;display:flex;gap:6px;align-items:center}
+.chip i{cursor:pointer;font-style:normal;color:var(--mute)}.chip i:hover{color:var(--red)}
+.q{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+.q .num{width:28px;height:38px;display:flex;align-items:center;justify-content:center;color:var(--mute);font-family:'Chakra Petch'}
+.q textarea{min-height:38px;height:38px}
+.q .ctl{display:flex;gap:4px}
+.icon{background:var(--panel2);border:1px solid var(--line);color:var(--mute);border-radius:6px;width:30px;height:38px;cursor:pointer}.icon:hover{color:var(--text)}
+.drawer{position:fixed;top:0;right:0;width:min(620px,100vw);height:100vh;background:var(--panel);border-left:1px solid var(--line);transform:translateX(100%);transition:.2s;z-index:20;display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.drawer .dh{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:center}
+.drawer .dh img{width:56px;height:56px;border-radius:50%}
+.drawer .db{padding:20px 24px;overflow-y:auto;flex:1}
+.drawer .df{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap}
+.qa{margin-bottom:18px}.qa .qq{font-weight:600;margin-bottom:4px}.qa .aa{color:#c9ced8;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;word-break:break-word}
+.shade{position:fixed;inset:0;background:#0008;z-index:15;display:none}.shade.open{display:block}
+.reasons label{display:flex;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text);background:var(--bg);border:1px solid var(--line);padding:10px 12px;border-radius:8px;cursor:pointer;margin:6px 0}
+.reasons input{width:auto}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:12px 18px;border-radius:10px;z-index:40;display:none}
+.toast.err{border-color:var(--red)}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}th{color:var(--mute);font-weight:500;font-size:12px;text-transform:uppercase}
+.preview{background:#313338;border-radius:8px;padding:14px;font-family:'gg sans',Inter,sans-serif}
+.preview .emb{border-left:4px solid var(--blue);background:#2b2d31;border-radius:4px;padding:12px 14px}
+.preview .emb b{display:block;margin-bottom:6px}.preview .emb p{margin:0;color:#dbdee1;white-space:pre-wrap;font-size:13px}
+.preview .pbtns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.preview .pbtn{padding:6px 14px;border-radius:4px;color:#fff;font-size:13px;font-weight:500}
+.s1{background:#5865f2}.s2{background:#4e5058}.s3{background:#248046}.s4{background:#da373c}
+.typecard{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;background:var(--panel)}
+.typecard .th{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer}
+.typecard .th b{flex:1}
+.typecard .tb{padding:0 18px 18px;display:none}.typecard.open .tb{display:block}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text);margin:12px 0 0}
+.switch input{width:auto}
+.center{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:14px;color:var(--mute);text-align:center}
+@media(max-width:800px){.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}main{padding:20px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="logo">BLUE<span>LINE</span> · WHITELIST APPLICATIONS</div><div class="me" id="me"></div></div>
+<nav class="rail" id="rail"></nav>
+<main id="main"><div class="center">Loading…</div></main>
+<div class="shade" id="shade" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer"></aside>
+<div class="toast" id="toast"></div>
+
+<script>
+const S = { me:null, guilds:null, gid:null, g:null, tab:'overview', apps:[], logs:[] };
+const $ = (s)=>document.querySelector(s);
+const esc = (s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ago = (t)=>{ if(!t) return ''; const d=(Date.now()-t)/1000; if(d<60) return 'just now'; if(d<3600) return Math.floor(d/60)+'m ago'; if(d<86400) return Math.floor(d/3600)+'h ago'; return new Date(t).toLocaleString(); };
+const gicon = (g)=> g.icon ? `<img src="https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128" alt="">` : esc((g.name||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,3));
+
+function toast(msg, isErr){ const t=$('#toast'); t.textContent=msg; t.className='toast'+(isErr?' err':''); t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',3500); }
+
+async function api(path, opts={}){
+  const r = await fetch('/api'+path, { method: opts.method||'GET', headers: opts.body?{'Content-Type':'application/json'}:{}, body: opts.body?JSON.stringify(opts.body):undefined });
+  if(r.status===401){ location.href='/login?next='+encodeURIComponent(location.pathname+location.search); throw new Error('login'); }
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||('Error '+r.status));
+  return j;
+}
+
+async function boot(){
+  try{ S.me = await api('/me'); }catch(e){ return; }
+  $('#me').innerHTML = `<img src="${esc(S.me.avatar)}"> <span>${esc(S.me.username)}</span> <a class="btn ghost sm" href="/logout">Log out</a>`;
+  await loadGuilds();
+  const want = new URLSearchParams(location.search).get('guild');
+  if(want && S.guilds.connected.find(g=>g.id===want)) selectGuild(want);
+  else if(S.guilds.connected.length===1) selectGuild(S.guilds.connected[0].id);
+  else renderHome();
+}
+
+async function loadGuilds(refresh){
+  S.guilds = await api('/guilds'+(refresh?'?refresh=1':''));
+  renderRail();
+}
+
+function renderRail(){
+  const c = S.guilds.connected;
+  $('#rail').innerHTML = `<a class="gicon ${!S.gid?'active':''}" title="Home" onclick="S.gid=null;renderHome();renderRail()">⌂</a><div class="sep"></div>` +
+    c.map(g=>`<a class="gicon ${S.gid===g.id?'active':''}" title="${esc(g.name)}" onclick="selectGuild('${g.id}')">${gicon(g)}</a>`).join('') +
+    `<a class="gicon add" title="Add the bot to a server" href="${esc(S.guilds.invite)}" target="_blank">+</a>`;
+}
+
+function renderHome(){
+  history.replaceState(null,'','/dashboard');
+  const c=S.guilds.connected, a=S.guilds.addable;
+  $('#main').innerHTML = `
+    <h2 style="margin-bottom:6px">Your servers</h2><p style="color:var(--mute);margin-top:0">Every server the bot is connected to that you're in. Pick one to configure it and review applications.</p>
+    ${c.length? `<div class="apps">${c.map(g=>`<div class="app" onclick="selectGuild('${g.id}')"><div class="gicon" style="width:40px;height:40px">${gicon(g)}</div><div class="meta"><b>${esc(g.name)}</b><small>${g.manage?'Manager':'Staff'}</small></div><span class="btn ghost sm">Open</span></div>`).join('')}</div>` : `<div class="empty">The bot isn't in any of your servers yet.</div>`}
+    <h3 style="margin:28px 0 10px">Add to another server</h3>
+    ${a.length? `<div class="apps">${a.map(g=>`<a class="app" style="text-decoration:none;color:inherit" target="_blank" href="${esc(S.guilds.invite)}&guild_id=${g.id}&disable_guild_select=true"><div class="gicon" style="width:40px;height:40px">${gicon(g)}</div><div class="meta"><b>${esc(g.name)}</b><small>Not connected</small></div><span class="btn sm">Invite bot</span></a>`).join('')}</div>`:`<div class="empty">No other servers you manage.</div>`}
+    <p style="margin-top:20px"><button class="btn ghost sm" onclick="loadGuilds(true).then(renderHome)">Refresh server list</button></p>`;
+}
+
+async function selectGuild(id, tab){
+  S.gid=id; if(tab) S.tab=tab; renderRail();
+  $('#main').innerHTML='<div class="center">Loading server…</div>';
+  try{ S.g = await api('/guilds/'+id); }catch(e){ $('#main').innerHTML=`<div class="center">${esc(e.message)}</div>`; return; }
+  history.replaceState(null,'','/dashboard?guild='+id);
+  if(!S.g.perms.manage && ['settings','types','panels'].includes(S.tab)) S.tab='submitted';
+  renderGuild();
+}
+
+function renderGuild(){
+  const g=S.g, p=g.perms, c=g.counts;
+  const tabs=[['overview','Overview'],['submitted','Submitted',c.submitted],['approved','Approved',c.approved],['denied','Denied',c.denied],
+    ...(p.manage?[['types','Applications'],['panels','Panels'],['settings','Settings']]:[]),['logs','Logs']];
+  $('#main').innerHTML = `
+    <div class="ghead">${g.guild.icon?`<img src="https://cdn.discordapp.com/icons/${g.guild.id}/${g.guild.icon}.png?size=128">`:`<div class="ph">${gicon(g.guild)}</div>`}
+      <div><h2>${esc(g.guild.name)}</h2><div class="sub">${[p.manage&&'Manager',p.approve&&'Approver',p.reset&&'Staff reset'].filter(Boolean).join(' · ')||'Viewer'}</div></div></div>
+    <div class="tabs">${tabs.map(([k,l,n])=>`<div class="tab ${S.tab===k?'active':''}" onclick="S.tab='${k}';renderGuild()">${l}${n!==undefined?` <span class="pill">${n}</span>`:''}</div>`).join('')}</div>
+    <div id="view"></div>`;
+  ({overview:vOverview,submitted:vApps,approved:vApps,denied:vApps,types:vTypes,panels:vPanels,settings:vSettings,logs:vLogs})[S.tab]();
+}
+
+// ---------- overview ----------
+async function vOverview(){
+  const g=S.g,c=g.counts;
+  const setupDone = g.config ? (g.config.approver_roles.length && g.types.length && g.panels.some(p=>p.message_id)) : true;
+  $('#view').innerHTML = `
+    <div class="stats">
+      <div class="stat"><div class="n" style="color:var(--amber)">${c.submitted}</div><div class="l">Awaiting review</div></div>
+      <div class="stat"><div class="n" style="color:var(--green)">${c.approved}</div><div class="l">Approved</div></div>
+      <div class="stat"><div class="n" style="color:var(--red)">${c.denied}</div><div class="l">Denied</div></div>
+      <div class="stat"><div class="n">${c.in_progress}</div><div class="l">In progress (DMs)</div></div>
+    </div>
+    ${!setupDone && g.perms.manage ? `<div class="card" style="border-color:var(--accent)"><h3>Finish setting up</h3>
+      <ol style="margin:0;padding-left:20px;line-height:2">
+        <li>${g.config.approver_roles.length?'✅':'⬜'} Choose approver &amp; staff roles in <a href="#" onclick="S.tab='settings';renderGuild();return false">Settings</a></li>
+        <li>${g.types.length?'✅':'⬜'} Create an application with questions in <a href="#" onclick="S.tab='types';renderGuild();return false">Applications</a></li>
+        <li>${g.panels.some(p=>p.message_id)?'✅':'⬜'} Post a panel with Apply buttons in <a href="#" onclick="S.tab='panels';renderGuild();return false">Panels</a></li>
+      </ol></div>`:''}
+    <div class="grid2">
+      <div class="card"><h3>Reapply cooldowns</h3><div id="cds" style="color:var(--mute)">Loading…</div></div>
+      <div class="card"><h3>Recent activity</h3><div id="recent" style="color:var(--mute)">Loading…</div></div>
+    </div>
+    ${g.perms.reset?`<div class="card"><h3>Reset a user by ID</h3><div class="row"><input id="rid" placeholder="Discord user ID" style="max-width:280px"><button class="btn" onclick="resetUser($('#rid').value)">Reset application status</button></div><small style="color:var(--mute)">Lets them apply again immediately, bypassing the cooldown.</small></div>`:''}`;
+  api(`/guilds/${S.gid}/cooldowns`).then(r=>{
+    $('#cds').innerHTML = r.users.length ? `<table>${r.users.map(u=>{const until=u.last+r.hours*3600000;return `<tr><td><b>${esc(u.username)}</b><br><small style="color:var(--mute)">${esc(u.app_name)}</small></td><td>${until>Date.now()?'until '+new Date(until).toLocaleString():'pending review'}</td><td>${g.perms.reset?`<button class="btn ghost sm" onclick="resetUser('${u.user_id}')">Reset</button>`:''}</td></tr>`}).join('')}</table>` : 'Nobody is on cooldown.';
+  });
+  api(`/guilds/${S.gid}/logs`).then(r=>{
+    $('#recent').innerHTML = r.logs.length ? `<table>${r.logs.slice(0,8).map(logRow).join('')}</table>` : 'No activity yet.';
+  });
+}
+
+function logRow(l){
+  const col={submitted:'var(--amber)',approved:'var(--green)',denied:'var(--red)',reset:'var(--blue)',config:'var(--mute)'}[l.action]||'var(--mute)';
+  return `<tr><td style="white-space:nowrap;color:var(--mute)">${ago(l.created_at)}</td><td><b style="color:${col};text-transform:uppercase;font-size:11px">${esc(l.action)}</b></td><td>${esc(l.actor_name||'')}${l.target_id&&l.action!=='submitted'?` → <code>${esc(l.target_id)}</code>`:''}${l.application_id?` · #${l.application_id}`:''}<br><small style="color:var(--mute)">${esc(l.detail||'')}</small></td></tr>`;
+}
+
+async function resetUser(uid){
+  uid=String(uid||'').trim(); if(!/^\d{15,22}$/.test(uid)) return toast('Enter a valid Discord user ID',true);
+  if(!confirm('Reset application status for '+uid+'? They will be able to apply again immediately.')) return;
+  try{ const r=await api(`/guilds/${S.gid}/reset`,{method:'POST',body:{user_id:uid}}); toast(`Reset done (${r.changed} application(s))`); closeDrawer(); selectGuild(S.gid); }catch(e){ toast(e.message,true); }
+}
+
+// ---------- applications list ----------
+async function vApps(){
+  $('#view').innerHTML = `<div class="row" style="margin-bottom:14px"><input id="search" placeholder="Search by name, user ID or application…" style="max-width:380px"><button class="btn ghost sm" onclick="loadApps()">Refresh</button></div><div id="list" class="apps"><div class="empty">Loading…</div></div>`;
+  $('#search').addEventListener('input',()=>{clearTimeout(S._s);S._s=setTimeout(loadApps,300)});
+  loadApps();
+}
+async function loadApps(){
+  const q=$('#search')?.value||'';
+  const r=await api(`/guilds/${S.gid}/applications?status=${S.tab}&q=${encodeURIComponent(q)}`);
+  S.apps=r.applications;
+  $('#list').innerHTML = S.apps.length ? S.apps.map(a=>`<div class="app" onclick="openApp(${a.id})"><img src="${esc(a.avatar_url)}"><div class="meta"><b>${esc(a.username)}</b><small>${esc(a.app_name)} · #${a.id} · ${ago(a.created_at)}${a.deny_reason?' · '+esc(a.deny_reason):''}${a.reviewer_name?' · by '+esc(a.reviewer_name):''}${a.cooldown_reset?' · cooldown reset':''}</small></div><span class="badge ${a.status}">${a.status==='submitted'?'pending':a.status}</span></div>`).join('') : `<div class="empty">No ${S.tab} applications.</div>`;
+}
+
+function openApp(id){
+  const a=S.apps.find(x=>x.id===id); if(!a) return;
+  const p=S.g.perms;
+  $('#drawer').innerHTML = `
+    <div class="dh"><img src="${esc(a.avatar_url)}"><div style="flex:1"><h3>${esc(a.username)}</h3><small style="color:var(--mute)">${esc(a.app_name)} · #${a.id} · <code>${esc(a.user_id)}</code><br>Submitted ${new Date(a.created_at).toLocaleString()}</small></div><span class="badge ${a.status}">${a.status==='submitted'?'pending':a.status}</span><button class="btn ghost sm" onclick="closeDrawer()">✕</button></div>
+    <div class="db">
+      ${a.status!=='submitted'?`<div class="card" style="padding:14px;border-color:${a.status==='approved'?'var(--green)':'var(--red)'}"><b>${a.status==='approved'?'Approved':'Denied'}</b> by ${esc(a.reviewer_name||'?')} · ${a.decided_at?new Date(a.decided_at).toLocaleString():''}${a.deny_reason?`<br>Reason: <b>${esc(a.deny_reason)}</b>`:''}</div>`:''}
+      ${a.answers.map((x,i)=>`<div class="qa"><div class="qq">${i+1}. ${esc(x.q)}</div><div class="aa">${esc(x.a)}</div></div>`).join('')}
+      <div id="denybox"></div>
+    </div>
+    <div class="df">
+      ${a.status==='submitted'&&p.approve?`<button class="btn green" onclick="decideApp(${a.id},'approved')">✅ Approve</button><button class="btn red" onclick="showDeny(${a.id})">⛔ Deny</button>`:''}
+      ${a.status==='submitted'&&!p.approve?`<small style="color:var(--mute)">You need an approver role to approve or deny.</small>`:''}
+      ${p.reset?`<button class="btn ghost" onclick="resetUser('${a.user_id}')">🔄 Reset application status</button>`:''}
+    </div>`;
+  $('#drawer').classList.add('open'); $('#shade').classList.add('open');
+}
+function closeDrawer(){ $('#drawer').classList.remove('open'); $('#shade').classList.remove('open'); }
+function showDeny(id){
+  $('#denybox').innerHTML = `<div class="card" style="border-color:var(--red)"><h3>Reason for denying (required)</h3><div class="reasons">${S.me.denyReasons.map((r,i)=>`<label><input type="radio" name="dr" value="${i}"> ${esc(r)}</label>`).join('')}</div><button class="btn red" style="margin-top:10px" onclick="decideApp(${id},'denied')">Confirm deny</button></div>`;
+  $('#denybox').scrollIntoView({behavior:'smooth'});
+}
+async function decideApp(id, decision){
+  let reason=null;
+  if(decision==='denied'){ const r=document.querySelector('input[name=dr]:checked'); if(!r) return toast('Select a reason for denying',true); reason=r.value; }
+  else if(!confirm('Approve application #'+id+'?')) return;
+  try{ await api(`/guilds/${S.gid}/applications/${id}/decision`,{method:'POST',body:{decision,reason}}); toast(decision==='approved'?'Application approved':'Application denied'); closeDrawer(); selectGuild(S.gid); }catch(e){ toast(e.message,true); }
+}
+
+// ---------- application types ----------
+function roleOpts(sel){ return `<option value="">— none —</option>`+S.g.roles.map(r=>`<option value="${r.id}" ${r.id===sel?'selected':''}>@${esc(r.name)}</option>`).join(''); }
+function vTypes(){
+  const t=S.g.types;
+  $('#view').innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:14px"><p style="color:var(--mute);margin:0">Each application has its own questions. Applicants get them one by one in DMs.</p><button class="btn" onclick="newType()">+ New application</button></div>
+    <div id="types">${t.length?t.map(typeCard).join(''):'<div class="empty">No applications yet.</div>'}</div>`;
+  num();
+}
+function typeCard(t){
+  return `<div class="typecard" id="tc${t.id}"><div class="th" onclick="this.parentNode.classList.toggle('open')"><b>${esc(t.name)}</b><small style="color:var(--mute)">${t.questions.length} questions</small><span class="badge ${t.enabled?'approved':'denied'}">${t.enabled?'open':'closed'}</span></div>
+  <div class="tb">
+    <div class="grid2"><div><label>Name</label><input data-f="name" value="${esc(t.name)}"></div>
+    <div><label>Role given on approval</label><select data-f="accept_role_id">${roleOpts(t.accept_role_id)}</select></div></div>
+    <label>Intro message (shown before the questions)</label><textarea data-f="description">${esc(t.description||'')}</textarea>
+    <div class="grid2"><div><label>Button colour</label><select data-f="button_style">${[[1,'Blurple'],[2,'Grey'],[3,'Green'],[4,'Red']].map(([v,l])=>`<option value="${v}" ${t.button_style==v?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div><label class="switch"><input type="checkbox" data-f="enabled" ${t.enabled?'checked':''}> Accepting applications</label></div></div>
+    <label>Questions</label><div class="qs">${t.questions.map(qRow).join('')}</div>
+    <button class="btn ghost sm" onclick="addQ(${t.id})">+ Add question</button>
+    <div class="row" style="margin-top:16px;justify-content:space-between"><button class="btn" onclick="saveType(${t.id})">Save</button><button class="btn ghost sm" style="color:var(--red)" onclick="delType(${t.id})">Delete application</button></div>
+  </div></div>`;
+}
+function qRow(q){ return `<div class="q"><span class="num"></span><textarea>${esc(q)}</textarea><div class="ctl"><button class="icon" onclick="mvQ(this,-1)">↑</button><button class="icon" onclick="mvQ(this,1)">↓</button><button class="icon" onclick="this.closest('.q').remove();num()">✕</button></div></div>`; }
+function num(){ document.querySelectorAll('.qs').forEach(qs=>qs.querySelectorAll('.num').forEach((n,i)=>n.textContent=i+1)); }
+function addQ(id){ const qs=$('#tc'+id+' .qs'); qs.insertAdjacentHTML('beforeend',qRow('')); num(); qs.lastElementChild.querySelector('textarea').focus(); }
+function mvQ(b,d){ const r=b.closest('.q'); if(d<0&&r.previousElementSibling) r.parentNode.insertBefore(r,r.previousElementSibling); if(d>0&&r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling,r); num(); }
+function readType(id){ const c=$('#tc'+id); const f=(k)=>c.querySelector(`[data-f=${k}]`); return { name:f('name').value, description:f('description').value, accept_role_id:f('accept_role_id').value, button_style:+f('button_style').value, enabled:f('enabled').checked, questions:[...c.querySelectorAll('.qs textarea')].map(t=>t.value.trim()).filter(Boolean) }; }
+async function saveType(id){ try{ await api(`/guilds/${S.gid}/types/${id}`,{method:'PUT',body:readType(id)}); toast('Saved — re-post panels to update their buttons'); await selectGuild(S.gid,'types'); $('#tc'+id)?.classList.add('open'); num(); }catch(e){ toast(e.message,true); } }
+async function newType(){ const name=prompt('Application name (e.g. Whitelist, Police, EMS)'); if(!name) return; try{ const r=await api(`/guilds/${S.gid}/types`,{method:'POST',body:{name,enabled:true,questions:['How old are you?','Tell us about your past roleplay experience.','Why do you want to join our server?']}}); await selectGuild(S.gid,'types'); $('#tc'+r.id)?.classList.add('open'); num(); }catch(e){ toast(e.message,true); } }
+async function delType(id){ if(!confirm('Delete this application? Existing submissions stay in the logs.')) return; try{ await api(`/guilds/${S.gid}/types/${id}`,{method:'DELETE'}); toast('Deleted'); selectGuild(S.gid,'types'); }catch(e){ toast(e.message,true); } }
+
+// ---------- panels ----------
+function chanOpts(sel){ return `<option value="">— choose channel —</option>`+S.g.channels.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>#${esc(c.name)}</option>`).join(''); }
+function vPanels(){
+  const ps=S.g.panels;
+  $('#view').innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:14px"><p style="color:var(--mute);margin:0">A panel is a message with Apply buttons. Posting again updates the existing message.</p><button class="btn" onclick="newPanel()">+ New panel</button></div>
+  ${ps.length?ps.map(panelCard).join(''):'<div class="empty">No panels yet.</div>'}`;
+  ps.forEach(p=>preview(p.id));
+}
+function panelCard(p){
+  return `<div class="card" id="pc${p.id}"><div class="grid2"><div>
+    <label>Channel</label><select data-f="channel_id" onchange="preview(${p.id})">${chanOpts(p.channel_id)}</select>
+    <label>Title</label><input data-f="title" value="${esc(p.title)}" oninput="preview(${p.id})">
+    <label>Description</label><textarea data-f="description" oninput="preview(${p.id})">${esc(p.description)}</textarea>
+    <div class="grid2"><div><label>Colour</label><input data-f="color" type="color" value="${esc(p.color||'#5865F2')}" oninput="preview(${p.id})" style="height:42px;padding:4px"></div><div><label>Image URL (optional)</label><input data-f="image_url" value="${esc(p.image_url||'')}"></div></div>
+    <label>Applications on this panel</label>${S.g.types.map(t=>`<label class="switch"><input type="checkbox" data-t="${t.id}" ${p.app_type_ids.includes(t.id)?'checked':''} onchange="preview(${p.id})"> ${esc(t.name)}</label>`).join('<br>')||'<small style="color:var(--mute)">Create an application first.</small>'}
+  </div><div><label>Preview</label><div class="preview" id="pv${p.id}"></div>
+    <p style="color:var(--mute);font-size:12px">${p.message_id?'✅ Posted — saving &amp; posting will update the existing message.':'Not posted yet.'}</p></div></div>
+  <div class="row" style="margin-top:16px"><button class="btn ghost" onclick="savePanel(${p.id})">Save</button><button class="btn" onclick="savePanel(${p.id},true)">Save &amp; ${p.message_id?'update':'post'} in Discord</button><span style="flex:1"></span><button class="btn ghost sm" style="color:var(--red)" onclick="delPanel(${p.id})">Delete</button></div></div>`;
+}
+function readPanel(id){ const c=$('#pc'+id); const f=(k)=>c.querySelector(`[data-f=${k}]`).value; return { channel_id:f('channel_id'), title:f('title'), description:f('description'), color:f('color'), image_url:f('image_url'), app_type_ids:[...c.querySelectorAll('[data-t]:checked')].map(x=>+x.dataset.t) }; }
+function preview(id){ const p=readPanel(id); $('#pv'+id).innerHTML=`<div class="emb" style="border-color:${esc(p.color)}"><b>${esc(p.title)}</b><p>${esc(p.description)}</p></div><div class="pbtns">${p.app_type_ids.map(t=>S.g.types.find(x=>x.id===t)).filter(Boolean).map(t=>`<span class="pbtn s${t.button_style}" style="${t.enabled?'':'opacity:.5'}">${esc(t.name)}</span>`).join('')}</div>`; }
+async function newPanel(){ try{ await api(`/guilds/${S.gid}/panels`,{method:'POST',body:{title:'Applications',description:'Click a button below to apply. The questions will be sent to your DMs — make sure your DMs are open!',color:'#2f7bff',app_type_ids:S.g.types.map(t=>t.id)}}); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
+async function savePanel(id,post){ try{ await api(`/guilds/${S.gid}/panels/${id}`,{method:'PUT',body:readPanel(id)}); if(post) await api(`/guilds/${S.gid}/panels/${id}/post`,{method:'POST'}); toast(post?'Panel posted to Discord':'Saved'); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
+async function delPanel(id){ if(!confirm('Delete this panel (and its Discord message)?')) return; try{ await api(`/guilds/${S.gid}/panels/${id}`,{method:'DELETE'}); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
+
+// ---------- settings ----------
+function vSettings(){
+  const c=S.g.config;
+  S.sel={approver:[...c.approver_roles],staff:[...c.staff_roles]};
+  $('#view').innerHTML = `<div class="grid2">
+    <div class="card"><h3>Who can review</h3>
+      <label>Approver roles (can approve / deny)</label><select onchange="addRole('approver',this)">${roleOpts('')}</select><div class="chips" id="ch_approver"></div>
+      <label>Staff roles (can reset application status &amp; bypass the cooldown)</label><select onchange="addRole('staff',this)">${roleOpts('')}</select><div class="chips" id="ch_staff"></div>
+      <small style="color:var(--mute);display:block;margin-top:12px">Server administrators can always approve, deny and reset.</small>
+    </div>
+    <div class="card"><h3>Where submissions go</h3>
+      <label>Webhook URL for submitted applications</label><input id="s_hook" value="${esc(c.webhook_url)}" placeholder="${S.g.defaultWebhook?'Using the default webhook':'https://discord.com/api/webhooks/…'}">
+      <label>Review channel (bot posts Approve / Deny buttons here)</label><select id="s_rev">${chanOpts(c.review_channel_id)}</select>
+      <label>Reapply cooldown (hours)</label><input id="s_cd" type="number" min="0" max="720" value="${c.cooldown_hours}">
+    </div></div>
+    <button class="btn" onclick="saveSettings()">Save settings</button>`;
+  drawChips();
+}
+function drawChips(){ ['approver','staff'].forEach(k=>{ $('#ch_'+k).innerHTML=S.sel[k].map(id=>{const r=S.g.roles.find(x=>x.id===id);return `<span class="chip">@${esc(r?r.name:id)} <i onclick="S.sel.${k}=S.sel.${k}.filter(x=>x!=='${id}');drawChips()">✕</i></span>`}).join('')||'<small style="color:var(--mute)">None selected</small>'; }); }
+function addRole(k,el){ if(el.value&&!S.sel[k].includes(el.value)) S.sel[k].push(el.value); el.value=''; drawChips(); }
+async function saveSettings(){ try{ await api(`/guilds/${S.gid}/config`,{method:'PUT',body:{approver_roles:S.sel.approver,staff_roles:S.sel.staff,webhook_url:$('#s_hook').value.trim(),review_channel_id:$('#s_rev').value,cooldown_hours:+$('#s_cd').value}}); toast('Settings saved'); selectGuild(S.gid,'settings'); }catch(e){ toast(e.message,true); } }
+
+// ---------- logs ----------
+async function vLogs(){
+  $('#view').innerHTML = `<div class="row" style="margin-bottom:14px"><select id="lf" style="max-width:220px" onchange="loadLogs()"><option value="">All actions</option><option value="submitted">Submitted</option><option value="approved">Approved</option><option value="denied">Denied</option><option value="reset">Reset</option><option value="config">Configuration</option></select></div><div class="card" style="padding:0"><table id="lt"><tr><td style="padding:20px;color:var(--mute)">Loading…</td></tr></table></div>`;
+  loadLogs();
+}
+async function loadLogs(){ const a=$('#lf').value; const r=await api(`/guilds/${S.gid}/logs${a?'?action='+a:''}`); $('#lt').innerHTML = r.logs.length? `<tr><th>When</th><th>Action</th><th>Details</th></tr>`+r.logs.map(logRow).join('') : `<tr><td style="padding:20px;color:var(--mute)">No log entries.</td></tr>`; }
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDrawer(); });
+boot();
+</script>
+</body>
+</html>

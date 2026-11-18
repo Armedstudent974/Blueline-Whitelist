@@ -1,0 +1,15 @@
+{
+  "name": "blueline-whitelist",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Blueline Whitelist Applications - FiveM application bot + dashboard on Cloudflare Workers",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "db:init": "wrangler d1 execute dmpforge-applications --remote --file schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
