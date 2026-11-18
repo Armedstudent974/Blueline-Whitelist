@@ -246,7 +246,9 @@ export async function onSubmit(env, user) {
 
   // 1) webhook (as requested)
   const hook = cfg.webhook_url || env.DEFAULT_WEBHOOK_URL;
-  if (hook) {
+  // if the review channel is the same channel the webhook posts into, only post once (the bot message with buttons)
+  const sameChannel = !!(hook && cfg.review_channel_id && (await webhookChannelId(hook)) === cfg.review_channel_id);
+  if (hook && !sameChannel) {
     // ping roles where staff review: the review channel if set, otherwise the webhook post
     try { await postEmbedsToWebhook(hook, embeds, cfg.review_channel_id ? null : pingFor(cfg, name)); } catch (e) { console.log('webhook failed', e.message); }
   }
@@ -276,6 +278,20 @@ export function submissionEmbeds(app) {
     timestamp: new Date(app.created_at).toISOString(),
     footer: { text: 'Blueline Whitelist Applications' },
   });
+}
+
+// Which channel a webhook posts into (public info on the webhook URL, no auth needed)
+const hookChannelCache = new Map();
+export async function webhookChannelId(url) {
+  if (!url) return null;
+  if (hookChannelCache.has(url)) return hookChannelCache.get(url);
+  try {
+    const r = await fetch(url.split('?')[0]);
+    const j = r.ok ? await r.json() : null;
+    const id = j?.channel_id || null;
+    hookChannelCache.set(url, id);
+    return id;
+  } catch { return null; }
 }
 
 // Role ping line for new submissions (approver + staff roles, no duplicates)
@@ -315,6 +331,24 @@ async function postReviewMessage(env, channelId, embeds, appId, ping) {
     if (last) first = m;
   }
   return first;
+}
+
+// Post Approve/Deny messages for pending applications that don't have one yet (e.g. review channel set later)
+export async function backfillReview(env, guildId) {
+  const cfg = await getConfig(env, guildId);
+  if (!cfg.review_channel_id) return 0;
+  const { results } = await env.DB.prepare(
+    `SELECT * FROM applications WHERE guild_id=? AND status='submitted' AND (review_message_id IS NULL OR review_channel_id IS NOT ?) ORDER BY id LIMIT 25`
+  ).bind(guildId, cfg.review_channel_id).all();
+  let n = 0;
+  for (const app of results) {
+    try {
+      const m = await postReviewMessage(env, cfg.review_channel_id, submissionEmbeds(app), app.id, pingFor(cfg, app.username));
+      await env.DB.prepare('UPDATE applications SET review_channel_id=?, review_message_id=? WHERE id=?').bind(cfg.review_channel_id, m.id, app.id).run();
+      n++;
+    } catch (e) { console.log('backfill failed', e.message); }
+  }
+  return n;
 }
 
 export function denyReasonMenu(appId) {
@@ -390,7 +424,9 @@ export async function decide(env, appId, decision, reasonIdx, actor) {
     ],
     timestamp: new Date().toISOString(),
   };
-  if (hook) tasks.push(webhookPost(hook, { username: 'Applications', embeds: [decisionEmbed], allowed_mentions: { parse: [] } }).catch((e) => console.log('hook fail', e.message)));
+  // decision log to the webhook — skipped when the review message (which gets updated) lives in that same channel
+  const sameChannel = !!(hook && app.review_channel_id && (await webhookChannelId(hook)) === app.review_channel_id);
+  if (hook && !sameChannel) tasks.push(webhookPost(hook, { username: 'Applications', embeds: [decisionEmbed], allowed_mentions: { parse: [] } }).catch((e) => console.log('hook fail', e.message)));
 
   // update review message
   if (app.review_channel_id && app.review_message_id) {

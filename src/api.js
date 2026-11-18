@@ -1,6 +1,6 @@
 import { dapi, hasPerm, PERM, displayName, avatarUrl, DENY_REASONS } from './discord.js';
 import { getConfig, saveConfig, listTypes, getType, addLog, now, parse } from './db.js';
-import { decide, resetUser, postPanel, canApprove, canReset, submissionEmbeds } from './flow.js';
+import { decide, resetUser, postPanel, canApprove, canReset, submissionEmbeds, backfillReview } from './flow.js';
 
 const json = (o, status = 200, headers = {}) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 const err = (msg, status = 400) => json({ error: msg }, status);
@@ -184,7 +184,8 @@ export async function handleApi(req, env, url) {
         cooldown_hours: body.cooldown_hours ?? 48,
       });
       await addLog(env, { guild_id: gid, action: 'config', actor_id: actor.id, actor_name: actor.name, detail: 'Updated settings via dashboard' });
-      return json({ ok: true });
+      const posted = await backfillReview(env, gid);
+      return json({ ok: true, posted });
     }
 
     // ---- application types ----

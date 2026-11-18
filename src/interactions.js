@@ -2,7 +2,7 @@ import { verifyRequest, editOriginal, followup, displayName, trunc, dapi } from 
 import { getConfig, saveConfig, listTypes, getType, addLog, now } from './db.js';
 import {
   startApplication, onCorrect, onCorrectPick, onCancel, onSubmit, decide, denyReasonMenu,
-  resetUser, canApprove, canReset, postPanel,
+  resetUser, canApprove, canReset, postPanel, backfillReview,
 } from './flow.js';
 
 const EPHEMERAL = 64;
@@ -130,6 +130,7 @@ export async function handleInteraction(request, env, ctx) {
         if (opts.cooldown_hours !== undefined) cfg.cooldown_hours = opts.cooldown_hours;
         await saveConfig(env, i.guild_id, cfg);
         await addLog(env, { guild_id: i.guild_id, action: 'config', actor_id: actor.id, actor_name: actor.name, detail: 'Updated via /setup' });
+        if (cfg.review_channel_id) ctx.waitUntil(backfillReview(env, i.guild_id));
         return reply(
           `✅ **Setup saved**\n• Approver role: <@&${opts.approver_role}>\n• Staff (reset) role: <@&${opts.staff_role}>\n• Review channel: ${cfg.review_channel_id ? `<#${cfg.review_channel_id}>` : '*not set*'}\n• Webhook: ${cfg.webhook_url ? 'custom' : 'default'}\n• Reapply cooldown: **${cfg.cooldown_hours}h**\n\nNext: \`/application create\` → \`/application add-question\` → \`/panel\`\nOr use the dashboard: ${env.BASE_URL}/dashboard?guild=${i.guild_id}`
         );
