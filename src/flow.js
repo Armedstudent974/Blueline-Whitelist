@@ -67,7 +67,7 @@ export async function startApplication(env, guildId, typeId, user) {
     });
     await sendQuestion(env, user.id, answers, 0);
   } catch (e) {
-    if (e.code === 50007) return { ok: false, reason: "I couldn't DM you. Please enable **Direct Messages** from server members (Server → Privacy Settings) and try again." };
+    if (e.code === 50007 || e.code === 50278) return { ok: false, reason: "I couldn't DM you, so your application can't start.\n\n**To fix:** right-click the server icon → **Privacy Settings** → turn on **Direct Messages**, then press Apply again.\n_If that's already on, the server may have DMs paused — let a staff member know._" };
     throw e;
   }
 
