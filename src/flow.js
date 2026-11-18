@@ -1,6 +1,13 @@
 import { dapi, sendDM, webhookPost, avatarUrl, displayName, colorInt, trunc, DENY_REASONS, hasPerm, PERM } from './discord.js';
 import { getConfig, getType, addLog, now, parse } from './db.js';
 
+
+// "Whitelist" -> "Whitelist Application"; "Blueline Whitelist Application" stays as-is
+export const appLabel = (name) => {
+  const n = String(name || 'Application').trim();
+  return /application$/i.test(n) ? n : `${n} Application`;
+};
+
 const BRAND = 0x5865f2;
 const GREEN = 0x2ecc71;
 const RED = 0xe74c3c;
@@ -55,7 +62,7 @@ export async function startApplication(env, guildId, typeId, user) {
     await sendDM(env, user.id, {
       embeds: [{
         color: BRAND,
-        title: `📝 ${type.name} Application`,
+        title: `📝 ${appLabel(type.name)}`,
         description:
           `${type.description ? type.description + '\n\n' : ''}` +
           `You are applying in **${guild?.name || 'the server'}**.\n` +
@@ -76,7 +83,7 @@ export async function startApplication(env, guildId, typeId, user) {
      ON CONFLICT(user_id) DO UPDATE SET guild_id=excluded.guild_id, app_type_id=excluded.app_type_id, answers=excluded.answers, step=0, editing=NULL, started_at=excluded.started_at`
   ).bind(user.id, guildId, typeId, JSON.stringify(answers), now()).run();
 
-  return { ok: true, reason: `📬 Check your DMs — your **${type.name}** application has started!` };
+  return { ok: true, reason: `📬 Check your DMs — your **${appLabel(type.name)}** has started!` };
 }
 
 function sendQuestion(env, userId, answers, i) {
@@ -93,7 +100,7 @@ function sendQuestion(env, userId, answers, i) {
 function reviewPayload(answers, typeName) {
   const embeds = buildQAEmbeds(answers, {
     color: AMBER,
-    title: `Review your ${typeName} application`,
+    title: `Review your ${appLabel(typeName)}`,
     description: 'Please check your answers below. Choose **Submit** to send it to staff or **Correct** to change an answer.',
   });
   return {
@@ -252,7 +259,7 @@ export async function onSubmit(env, user) {
 
   return {
     content: '',
-    embeds: [{ color: GREEN, title: '✅ Application submitted', description: `Your **${type?.name || ''}** application (#${appId}) has been sent to staff. You'll get a DM here once it has been reviewed.` }],
+    embeds: [{ color: GREEN, title: '✅ Application submitted', description: `Your **${appLabel(type?.name)}** (#${appId}) has been sent to staff. You'll get a DM here once it has been reviewed.` }],
     components: [],
   };
 }
@@ -262,7 +269,7 @@ export function submissionEmbeds(app) {
   return buildQAEmbeds(answers, {
     color: BRAND,
     author: { name: app.username, icon_url: app.avatar_url },
-    title: `${app.app_name} Application #${app.id}`,
+    title: `${appLabel(app.app_name)} #${app.id}`,
     thumbnail: { url: app.avatar_url },
     description: `**Applicant:** <@${app.user_id}>\n**Discord:** ${app.username}\n**User ID:** \`${app.user_id}\`\n**Submitted:** <t:${Math.floor(app.created_at / 1000)}:f>`,
     timestamp: new Date(app.created_at).toISOString(),
@@ -335,8 +342,8 @@ export async function decide(env, appId, decision, reasonIdx, actor) {
       color: approved ? GREEN : RED,
       title: approved ? '✅ Application Approved' : '⛔ Application Denied',
       description: approved
-        ? `Congratulations! Your **${app.app_name}** application in **${guild?.name || 'the server'}** has been **approved**.`
-        : `Your **${app.app_name}** application in **${guild?.name || 'the server'}** has been **denied**.\n\n**Reason:** ${reason}`,
+        ? `🎉 Congratulations! Your **${appLabel(app.app_name)}** for **${guild?.name || 'the server'}** has been **approved**.\n\nWelcome to the community — you now have access. See you in the city!`
+        : `Unfortunately, your **${appLabel(app.app_name)}** for **${guild?.name || 'the server'}** has been **denied**.\n\n**Reason:** ${reason}\n\nYou can apply again once your 48-hour cooldown has passed.`,
       timestamp: new Date().toISOString(),
     }],
   }).catch((e) => console.log('dm fail', e.message)));
@@ -355,7 +362,7 @@ export async function decide(env, appId, decision, reasonIdx, actor) {
   const decisionEmbed = {
     color: approved ? GREEN : RED,
     author: { name: app.username, icon_url: app.avatar_url },
-    title: `${app.app_name} Application #${appId} ${approved ? 'Approved' : 'Denied'}`,
+    title: `${appLabel(app.app_name)} #${appId} ${approved ? 'Approved' : 'Denied'}`,
     thumbnail: { url: app.avatar_url },
     fields: [
       { name: 'Applicant', value: `<@${app.user_id}> (${trunc(app.username, 200)})`, inline: true },
