@@ -88,8 +88,10 @@ export class Gateway {
     this.acked = true;
     this.resuming = resume;
 
+    // process gateway events one at a time, in order
+    this.queue = Promise.resolve();
     ws.addEventListener('message', (e) => {
-      this.onMessage(e.data).catch((err) => (this.lastError = String(err.stack || err)));
+      this.queue = this.queue.then(() => this.onMessage(e.data)).catch((err) => (this.lastError = String(err.stack || err)));
     });
     ws.addEventListener('close', (e) => this.onClose(ws, e.code, e.reason));
     ws.addEventListener('error', () => this.onClose(ws, 1006, 'error'));
@@ -177,8 +179,13 @@ export class Gateway {
       this.resumeUrl = d.resume_gateway_url;
       this.botUser = { id: d.user.id, username: d.user.username };
       await this.state.storage.put({ sessionId: this.sessionId, resumeUrl: this.resumeUrl });
-      // mark all as inactive; GUILD_CREATE events that follow re-activate them
-      await env.DB.prepare('UPDATE guilds SET active=0').run();
+      // guilds listed in READY are the ones the bot is in; anything else is inactive
+      const ids = (d.guilds || []).map((g) => g.id);
+      if (ids.length) {
+        await env.DB.prepare(`UPDATE guilds SET active = CASE WHEN id IN (${ids.map(() => '?').join(',')}) THEN 1 ELSE 0 END`).bind(...ids).run();
+      } else {
+        await env.DB.prepare('UPDATE guilds SET active=0').run();
+      }
       const hash = await sha(JSON.stringify(COMMANDS));
       if ((await kvGet(env, 'cmd_hash')) !== hash) {
         try { await registerCommands(env); await kvSet(env, 'cmd_hash', hash); } catch (e) { this.lastError = 'register: ' + e.message; }
