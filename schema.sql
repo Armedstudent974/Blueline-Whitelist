@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS applications (
   review_channel_id TEXT,
   review_message_id TEXT,
   created_at INTEGER,
-  decided_at INTEGER
+  decided_at INTEGER,
+  started_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_apps_guild_status ON applications(guild_id, status);
 CREATE INDEX IF NOT EXISTS idx_apps_user ON applications(guild_id, user_id, app_type_id);

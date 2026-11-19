@@ -52,16 +52,16 @@ export async function checkEligibility(env, guildId, typeId, userId, roles) {
   if (blocked) return { ok: false, reason: blocked };
   if (hours > 0) {
     const since = now() - hours * 3600 * 1000;
-    // counts from the later of submitting or being denied/decided
+    // 48h counts from when the applicant STARTED their last application (a denial does not restart it)
     const recent = await env.DB.prepare(
-      `SELECT status, MAX(created_at, COALESCE(decided_at, 0)) AS last FROM applications
-       WHERE guild_id=? AND user_id=? AND app_type_id=? AND cooldown_reset=0 AND MAX(created_at, COALESCE(decided_at, 0)) > ?
-       ORDER BY last DESC LIMIT 1`
+      `SELECT status, COALESCE(started_at, created_at) AS started FROM applications
+       WHERE guild_id=? AND user_id=? AND app_type_id=? AND cooldown_reset=0 AND COALESCE(started_at, created_at) > ?
+       ORDER BY started DESC LIMIT 1`
     ).bind(guildId, userId, typeId, since).first();
     if (recent) {
-      const until = Math.floor((recent.last + hours * 3600 * 1000) / 1000);
-      const why = recent.status === 'denied' ? 'Your last application was denied' : 'You recently submitted this application';
-      return { ok: false, reason: `⏳ ${why}. You can apply again <t:${until}:R> (<t:${until}:f>).` };
+      const until = Math.floor((recent.started + hours * 3600 * 1000) / 1000);
+      const why = recent.status === 'denied' ? 'Your last application was denied' : 'You recently applied';
+      return { ok: false, reason: `⏳ ${why}. You can apply again <t:${until}:R> (<t:${until}:f>) — 48 hours after you started your last application.` };
     }
   }
   return { ok: true };
@@ -272,8 +272,8 @@ export async function onSubmit(env, user) {
   const name = displayName(user);
 
   const ins = await env.DB.prepare(
-    `INSERT INTO applications (guild_id, app_type_id, app_name, user_id, username, avatar_url, answers, status, created_at) VALUES (?,?,?,?,?,?,?, 'submitted', ?)`
-  ).bind(s.guild_id, s.app_type_id, type?.name || 'Application', user.id, name, avatar, JSON.stringify(answers), now()).run();
+    `INSERT INTO applications (guild_id, app_type_id, app_name, user_id, username, avatar_url, answers, status, created_at, started_at) VALUES (?,?,?,?,?,?,?, 'submitted', ?, ?)`
+  ).bind(s.guild_id, s.app_type_id, type?.name || 'Application', user.id, name, avatar, JSON.stringify(answers), now(), s.started_at || now()).run();
   const appId = ins.meta.last_row_id;
   await addLog(env, { guild_id: s.guild_id, application_id: appId, action: 'submitted', actor_id: user.id, actor_name: name, target_id: user.id, detail: type?.name });
 
