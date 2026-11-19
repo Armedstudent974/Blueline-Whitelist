@@ -17,7 +17,8 @@ binding = "DB"
 database_name = "dmpforge-applications"
 database_id = "92005a18-aed8-4cf2-b277-4eedb7ce3253"
 
-# Keeps the Discord gateway connection (DM answers) alive 24/7
+# Retired: the Discord connection now lives in the shared gateway of the
+# blueline-tickets Worker. Binding/migration kept so existing data migrates cleanly.
 [[durable_objects.bindings]]
 name = "GATEWAY"
 class_name = "Gateway"
@@ -26,7 +27,7 @@ class_name = "Gateway"
 tag = "v1"
 new_sqlite_classes = ["Gateway"]
 
-# Watchdog: makes sure the bot is connected every minute
+# Housekeeping (expired sessions, idle questionnaires, force-submit)
 [triggers]
 crons = ["* * * * *"]
 
