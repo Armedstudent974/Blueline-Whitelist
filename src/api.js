@@ -1,6 +1,6 @@
 import { dapi, hasPerm, PERM, displayName, avatarUrl, DENY_REASONS } from './discord.js';
 import { getConfig, saveConfig, listTypes, getType, addLog, now, parse } from './db.js';
-import { decide, resetUser, postPanel, canApprove, canReset, submissionEmbeds, backfillReview } from './flow.js';
+import { decide, resetUser, postPanel, canApprove, canReset, submissionEmbeds, backfillReview, submitCompletedSessions } from './flow.js';
 
 const json = (o, status = 200, headers = {}) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 const err = (msg, status = 400) => json({ error: msg }, status);
@@ -289,6 +289,13 @@ export async function handleApi(req, env, url) {
         const r = await decide(env, appId, body.decision, body.reason, actor);
         return r.ok ? json({ ok: true }) : err(r.error);
       }
+    }
+
+    // ---- submit fully-answered questionnaires that are stuck in DMs ----
+    if (section === 'sessions' && p[3] === 'submit' && method === 'POST') {
+      if (!a.manage) return err('Manage Server permission required', 403);
+      const done = await submitCompletedSessions(env, gid);
+      return json({ ok: true, submitted: done });
     }
 
     // ---- reset cooldown ----

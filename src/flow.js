@@ -97,23 +97,27 @@ function sendQuestion(env, userId, answers, i) {
   });
 }
 
-function reviewPayload(answers, typeName) {
+const REVIEW_BUTTONS = [{
+  type: 1,
+  components: [
+    { type: 2, style: 3, label: 'Submit', emoji: { name: '✅' }, custom_id: 'app_submit' },
+    { type: 2, style: 1, label: 'Correct', emoji: { name: '✏️' }, custom_id: 'app_correct' },
+    { type: 2, style: 4, label: 'Cancel', custom_id: 'app_cancel' },
+  ],
+}];
+
+// Sends the "review your answers" screen. Discord limits a message to 6000 characters of embeds,
+// so long applications are split across several messages; the buttons go on the last one.
+async function sendReview(env, channelId, answers, typeName) {
   const embeds = buildQAEmbeds(answers, {
     color: AMBER,
     title: `Review your ${appLabel(typeName)}`,
     description: 'Please check your answers below. Choose **Submit** to send it to staff or **Correct** to change an answer.',
   });
-  return {
-    embeds: embeds.slice(0, 10),
-    components: [{
-      type: 1,
-      components: [
-        { type: 2, style: 3, label: 'Submit', emoji: { name: '✅' }, custom_id: 'app_submit' },
-        { type: 2, style: 1, label: 'Correct', emoji: { name: '✏️' }, custom_id: 'app_correct' },
-        { type: 2, style: 4, label: 'Cancel', custom_id: 'app_cancel' },
-      ],
-    }],
-  };
+  for (let i = 0; i < embeds.length; i++) {
+    const last = i === embeds.length - 1;
+    await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: [embeds[i]], ...(last ? { components: REVIEW_BUTTONS } : {}) });
+  }
 }
 
 // Builds one or more embeds holding Q&A fields, respecting Discord limits
@@ -124,7 +128,7 @@ export function buildQAEmbeds(answers, head) {
   answers.forEach((x, i) => {
     const name = trunc(`${i + 1}. ${x.q}`, 256);
     const value = trunc(x.a || '*No answer*', 1024);
-    if (cur.fields.length >= 25 || size + name.length + value.length > 5800) {
+    if (cur.fields.length >= 25 || size + name.length + value.length > 5500) {
       embeds.push(cur);
       cur = { color: head.color, fields: [] };
       size = 0;
@@ -162,7 +166,7 @@ export async function handleDM(env, msg) {
   if (s.editing !== null && s.editing !== undefined) {
     answers[s.editing].a = content;
     await env.DB.prepare('UPDATE sessions SET answers=?, editing=NULL WHERE user_id=?').bind(JSON.stringify(answers), userId).run();
-    await dapi(env, 'POST', `/channels/${msg.channel_id}/messages`, reviewPayload(answers, typeName));
+    await sendReview(env, msg.channel_id, answers, typeName);
     return;
   }
 
@@ -176,7 +180,7 @@ export async function handleDM(env, msg) {
   const next = step + 1;
   await env.DB.prepare('UPDATE sessions SET answers=?, step=? WHERE user_id=?').bind(JSON.stringify(answers), next, userId).run();
   if (next < answers.length) await sendQuestion(env, userId, answers, next);
-  else await dapi(env, 'POST', `/channels/${msg.channel_id}/messages`, reviewPayload(answers, typeName));
+  else await sendReview(env, msg.channel_id, answers, typeName);
 }
 
 // ---------- DM button handlers ----------
@@ -265,6 +269,23 @@ export async function onSubmit(env, user) {
     embeds: [{ color: GREEN, title: '✅ Application submitted', description: `Your **${appLabel(type?.name)}** (#${appId}) has been sent to staff. You'll get a DM here once it has been reviewed.` }],
     components: [],
   };
+}
+
+// Submit questionnaires that are fully answered but stuck waiting on the review buttons
+export async function submitCompletedSessions(env, guildId) {
+  const { results } = await env.DB.prepare('SELECT * FROM sessions WHERE guild_id=?').bind(guildId).all();
+  const done = [];
+  for (const s of results) {
+    const answers = parse(s.answers, []);
+    if (!answers.length || answers.some((x) => !x.a)) continue;
+    try {
+      const user = await dapi(env, 'GET', `/users/${s.user_id}`);
+      const res = await onSubmit(env, user);
+      await sendDM(env, user.id, { content: res.content || undefined, embeds: res.embeds || [] }).catch(() => {});
+      done.push(displayName(user));
+    } catch (e) { console.log('force submit failed', s.user_id, e.message); }
+  }
+  return done;
 }
 
 export function submissionEmbeds(app) {
