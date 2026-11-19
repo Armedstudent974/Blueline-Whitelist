@@ -1,6 +1,7 @@
 import { handleInteraction } from './interactions.js';
 import { handleAuth, handleApi, getSession, inviteUrl } from './api.js';
 import { Gateway } from './gateway.js';
+import { submitCompletedSessions } from './flow.js';
 import LANDING from './landing.html';
 import DASHBOARD from './dashboard.html';
 
@@ -43,6 +44,14 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(gw(env).fetch('https://gw/ensure').catch((e) => console.log('ensure failed', e.message)));
     ctx.waitUntil(env.DB.prepare('DELETE FROM web_sessions WHERE expires_at < ?').bind(Date.now()).run());
+    // one-shot admin action: submit fully-answered applications stuck in DMs (set kv 'force_submit' = guild id)
+    ctx.waitUntil((async () => {
+      const row = await env.DB.prepare("SELECT v FROM kv WHERE k='force_submit'").first();
+      if (!row?.v) return;
+      await env.DB.prepare("DELETE FROM kv WHERE k='force_submit'").run();
+      const done = await submitCompletedSessions(env, row.v);
+      await env.DB.prepare("INSERT INTO kv (k, v) VALUES ('force_submit_result', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(new Date().toISOString() + ' ' + JSON.stringify(done)).run();
+    })().catch((e) => console.log('force submit error', e.message)));
     // abandon DM questionnaires idle for more than 7 days
     ctx.waitUntil(env.DB.prepare('DELETE FROM sessions WHERE started_at < ?').bind(Date.now() - 7 * 86400 * 1000).run());
   },
