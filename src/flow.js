@@ -52,12 +52,16 @@ export async function checkEligibility(env, guildId, typeId, userId, roles) {
   if (blocked) return { ok: false, reason: blocked };
   if (hours > 0) {
     const since = now() - hours * 3600 * 1000;
+    // counts from the later of submitting or being denied/decided
     const recent = await env.DB.prepare(
-      `SELECT created_at FROM applications WHERE guild_id=? AND user_id=? AND app_type_id=? AND cooldown_reset=0 AND created_at > ? ORDER BY created_at DESC LIMIT 1`
+      `SELECT status, MAX(created_at, COALESCE(decided_at, 0)) AS last FROM applications
+       WHERE guild_id=? AND user_id=? AND app_type_id=? AND cooldown_reset=0 AND MAX(created_at, COALESCE(decided_at, 0)) > ?
+       ORDER BY last DESC LIMIT 1`
     ).bind(guildId, userId, typeId, since).first();
     if (recent) {
-      const until = Math.floor((recent.created_at + hours * 3600 * 1000) / 1000);
-      return { ok: false, reason: `You recently submitted this application. You can reapply <t:${until}:R> (<t:${until}:f>).` };
+      const until = Math.floor((recent.last + hours * 3600 * 1000) / 1000);
+      const why = recent.status === 'denied' ? 'Your last application was denied' : 'You recently submitted this application';
+      return { ok: false, reason: `⏳ ${why}. You can apply again <t:${until}:R> (<t:${until}:f>).` };
     }
   }
   return { ok: true };
@@ -74,7 +78,7 @@ export async function startApplication(env, guildId, typeId, user, roles) {
   if (!elig.ok) return elig;
 
   const guild = await env.DB.prepare('SELECT name FROM guilds WHERE id=?').bind(guildId).first();
-  const answers = type.questions.map((q) => ({ q, a: null }));
+  const answers = type.questions.slice(0, MAX_QUESTIONS).map((q) => ({ q, a: null }));
   const existing = await env.DB.prepare('SELECT user_id FROM sessions WHERE user_id=?').bind(user.id).first();
 
   try {
@@ -85,7 +89,7 @@ export async function startApplication(env, guildId, typeId, user, roles) {
         description:
           `${type.description ? type.description + '\n\n' : ''}` +
           `You are applying in **${guild?.name || 'the server'}**.\n` +
-          `I'll send you **${answers.length}** question${answers.length === 1 ? '' : 's'}, one at a time. ` +
+          `I'll send you **${answers.length}** question${answers.length === 1 ? '' : 's'}, one at a time. Each answer can be up to **${answerCap(answers.map((x) => x.q))}** characters. ` +
           `Simply type your answer and send it as a message. At the end you'll be able to **correct** any answer before you **submit**.` +
           (existing ? '\n\n_Your previous unfinished application has been replaced by this one._' : ''),
         footer: { text: 'Type "cancel" at any time to stop.' },
@@ -106,12 +110,13 @@ export async function startApplication(env, guildId, typeId, user, roles) {
 }
 
 function sendQuestion(env, userId, answers, i) {
+  const cap = answerCap(answers.map((x) => x.q));
   return sendDM(env, userId, {
     embeds: [{
       color: BRAND,
       author: { name: `Question ${i + 1} of ${answers.length}` },
       description: `**${trunc(answers[i].q, 4000)}**`,
-      footer: { text: 'Reply with your answer below.' },
+      footer: { text: `Reply with your answer below (max ${cap} characters).` },
     }],
   });
 }
@@ -125,53 +130,37 @@ const REVIEW_BUTTONS = [{
   ],
 }];
 
-// Sends the "review your answers" screen as ONE message (long answers are shortened in the embed
-// and the full text is attached as a file in the same message).
+// Sends the "review your answers" screen as ONE message with ONE embed.
 async function sendReview(env, channelId, answers, typeName) {
   const msg = buildQAMessage(answers, {
     color: AMBER,
     title: `Review your ${appLabel(typeName)}`,
     description: 'Please check your answers below. Choose **Submit** to send it to staff or **Correct** to change an answer.',
-  }, { fileName: 'your-application.txt', fileTitle: `Your ${appLabel(typeName)}` });
-  await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: msg.embeds, components: REVIEW_BUTTONS }, { files: msg.files });
+  });
+  await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: msg.embeds, components: REVIEW_BUTTONS });
 }
 
-// Discord limits: 6000 chars across all embeds in a message, 25 fields per embed, 1024 per field value, 10 embeds.
-const MSG_BUDGET = 5600;          // keep headroom for the "Status" line added on approve/deny
-const TRUNC_NOTE = '… *(full answer in attached file)*';
+// Discord limits: 6000 chars across all embeds in one message, 25 fields per embed, 1024 per field value.
+// Everything must fit in ONE embed, so each answer gets a character limit based on how many questions there are.
+const MSG_BUDGET = 5600;   // total for the embed, leaves headroom for the Status line added on approve/deny
+const HEAD_RESERVE = 650;  // title, applicant details, author, footer
+export const MAX_QUESTIONS = 25;
+const qName = (q, i) => trunc(`${i + 1}. ${q}`, 250);
 
-// Builds a single Discord message holding every question + answer. If everything does not fit,
-// answers are shortened fairly (longest ones first) and the complete text is attached as a .txt file.
-export function buildQAMessage(answers, head, { fileName = 'application.txt', fileTitle = 'Application' } = {}) {
-  const names = answers.map((x, i) => trunc(`${i + 1}. ${x.q}`, 250));
-  const full = answers.map((x) => String(x.a || '*No answer*'));
-  const headSize = (head.title?.length || 0) + (head.description?.length || 0) + (head.author?.name?.length || 0) + (head.footer?.text?.length || 0) + 160;
-  let budget = MSG_BUDGET - headSize - names.reduce((n, x) => n + x.length, 0);
-  const total = full.reduce((n, a) => n + Math.min(a.length, 1024), 0);
-  let values = full.map((a) => trunc(a, 1024));
-  let truncated = total > budget || full.some((a) => a.length > 1024);
-  if (total > budget) {
-    // find the largest per-answer cap that fits the budget
-    let lo = 20, hi = 1024;
-    const cost = (c) => full.reduce((n, a) => n + (a.length > c ? c : a.length), 0);
-    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (cost(mid) <= budget) lo = mid; else hi = mid - 1; }
-    const cap = lo;
-    values = full.map((a) => (a.length > cap ? a.slice(0, Math.max(1, cap - TRUNC_NOTE.length)).trimEnd() + TRUNC_NOTE : a));
-  }
-  const fields = names.map((name, i) => ({ name, value: values[i] || '\u200b' }));
-  const embeds = [];
-  for (let i = 0; i < fields.length || i === 0; i += 25) {
-    embeds.push(i === 0 ? { ...head, fields: fields.slice(0, 25) } : { color: head.color, fields: fields.slice(i, i + 25) });
-    if (embeds.length >= 10) break;
-  }
-  let files = [];
-  if (truncated) {
-    embeds[0].description = `${embeds[0].description ? embeds[0].description + '\n\n' : ''}📎 Some answers were long, so they're shortened here — the **full application is attached** to this message.`;
-    const text = `${fileTitle}\n${'='.repeat(Math.min(60, fileTitle.length))}\n\n` +
-      answers.map((x, i) => `${i + 1}. ${x.q}\n${x.a || '(no answer)'}\n`).join('\n');
-    files = [{ name: fileName, content: text }];
-  }
-  return { embeds, files };
+// Max characters per answer so that all answers fit in a single embed
+export function answerCap(questions) {
+  const qs = questions.slice(0, MAX_QUESTIONS);
+  if (!qs.length) return 1000;
+  const names = qs.reduce((n, q, i) => n + qName(q, i).length, 0);
+  return Math.max(50, Math.min(1000, Math.floor((MSG_BUDGET - HEAD_RESERVE - names) / qs.length)));
+}
+
+// Builds ONE embed with every question and its answer underneath, in order.
+export function buildQAMessage(answers, head) {
+  const list = answers.slice(0, MAX_QUESTIONS);
+  const cap = answerCap(list.map((x) => x.q));
+  const fields = list.map((x, i) => ({ name: qName(x.q, i), value: trunc(x.a || '*No answer*', cap) }));
+  return { embeds: [{ ...head, fields }], files: [] };
 }
 
 // ---------- DM message handler (called from gateway) ----------
@@ -189,8 +178,9 @@ export async function handleDM(env, msg) {
     await dapi(env, 'POST', `/channels/${msg.channel_id}/messages`, { content: '❌ Your application has been cancelled. You can start again from the server at any time.' });
     return;
   }
-  if (content.length > 1000) {
-    await dapi(env, 'POST', `/channels/${msg.channel_id}/messages`, { content: `⚠️ That answer is ${content.length} characters long. Please keep each answer under **1000** characters and send it again.` });
+  const cap = answerCap(answers.map((x) => x.q));
+  if (content.length > cap) {
+    await dapi(env, 'POST', `/channels/${msg.channel_id}/messages`, { content: `⚠️ That answer is **${content.length}** characters. Each answer can be up to **${cap}** characters so your whole application fits on one page for staff — please shorten it and send it again.` });
     return;
   }
 
@@ -339,7 +329,7 @@ export function submissionMessage(app) {
     description: `**Applicant:** <@${app.user_id}>\n**Discord:** ${app.username}\n**User ID:** \`${app.user_id}\`\n**Submitted:** <t:${Math.floor(app.created_at / 1000)}:f>`,
     timestamp: new Date(app.created_at).toISOString(),
     footer: { text: 'Blueline Whitelist Applications' },
-  }, { fileName: `application-${app.id}.txt`, fileTitle: `${appLabel(app.app_name)} #${app.id} - ${app.username} (${app.user_id})` });
+  });
 }
 
 // Which channel a webhook posts into (public info on the webhook URL, no auth needed)

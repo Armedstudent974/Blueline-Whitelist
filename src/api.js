@@ -194,7 +194,7 @@ export async function handleApi(req, env, url) {
       const clean = (b) => ({
         name: String(b.name || '').trim().slice(0, 80),
         description: String(b.description || '').slice(0, 1500),
-        questions: (Array.isArray(b.questions) ? b.questions : []).map((q) => String(q).trim().slice(0, 1000)).filter(Boolean).slice(0, 50),
+        questions: (Array.isArray(b.questions) ? b.questions : []).map((q) => String(q).trim().slice(0, 1000)).filter(Boolean).slice(0, 25),
         enabled: b.enabled ? 1 : 0,
         accept_role_id: /^\d+$/.test(b.accept_role_id || '') ? b.accept_role_id : null,
         remove_role_id: /^\d+$/.test(b.remove_role_id || '') ? b.remove_role_id : null,

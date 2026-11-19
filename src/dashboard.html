@@ -267,13 +267,16 @@ function typeCard(t){
     <label>Intro message (shown before the questions)</label><textarea data-f="description">${esc(t.description||'')}</textarea>
     <div class="grid2"><div><label>Button colour</label><select data-f="button_style">${[[1,'Blurple'],[2,'Grey'],[3,'Green'],[4,'Red']].map(([v,l])=>`<option value="${v}" ${t.button_style==v?'selected':''}>${l}</option>`).join('')}</select></div>
     <div><label class="switch"><input type="checkbox" data-f="enabled" ${t.enabled?'checked':''}> Accepting applications</label></div></div>
-    <label>Questions</label><div class="qs">${t.questions.map(qRow).join('')}</div>
+    <label>Questions <span class="caphint" style="text-transform:none;letter-spacing:0;color:var(--accent2)"></span></label><div class="qs">${t.questions.map(qRow).join('')}</div>
     <button class="btn ghost sm" onclick="addQ(${t.id})">+ Add question</button>
     <div class="row" style="margin-top:16px;justify-content:space-between"><button class="btn" onclick="saveType(${t.id})">Save</button><button class="btn ghost sm" style="color:var(--red)" onclick="delType(${t.id})">Delete application</button></div>
   </div></div>`;
 }
 function qRow(q){ return `<div class="q"><span class="num"></span><textarea>${esc(q)}</textarea><div class="ctl"><button class="icon" onclick="mvQ(this,-1)">↑</button><button class="icon" onclick="mvQ(this,1)">↓</button><button class="icon" onclick="this.closest('.q').remove();num()">✕</button></div></div>`; }
-function num(){ document.querySelectorAll('.qs').forEach(qs=>qs.querySelectorAll('.num').forEach((n,i)=>n.textContent=i+1)); }
+// same maths as the bot: everything must fit in one Discord embed
+function answerCap(qs){ qs=qs.slice(0,25); if(!qs.length) return 1000; const names=qs.reduce((n,q,i)=>n+Math.min(250,(i+1+'. '+q).length),0); return Math.max(50,Math.min(1000,Math.floor((5600-650-names)/qs.length))); }
+function num(){ document.querySelectorAll('.qs').forEach(qs=>{ qs.querySelectorAll('.num').forEach((n,i)=>n.textContent=i+1); const list=[...qs.querySelectorAll('textarea')].map(t=>t.value.trim()).filter(Boolean); const h=qs.closest('.tb')?.querySelector('.caphint'); if(h) h.textContent=`— ${list.length}/25 questions · applicants get up to ${answerCap(list)} characters per answer`; }); }
+document.addEventListener('input',e=>{ if(e.target.closest && e.target.closest('.qs')) num(); });
 function addQ(id){ const qs=$('#tc'+id+' .qs'); qs.insertAdjacentHTML('beforeend',qRow('')); num(); qs.lastElementChild.querySelector('textarea').focus(); }
 function mvQ(b,d){ const r=b.closest('.q'); if(d<0&&r.previousElementSibling) r.parentNode.insertBefore(r,r.previousElementSibling); if(d>0&&r.nextElementSibling) r.parentNode.insertBefore(r.nextElementSibling,r); num(); }
 function readType(id){ const c=$('#tc'+id); const f=(k)=>c.querySelector(`[data-f=${k}]`); return { name:f('name').value, description:f('description').value, accept_role_id:f('accept_role_id').value, remove_role_id:f('remove_role_id').value, button_style:+f('button_style').value, enabled:f('enabled').checked, questions:[...c.querySelectorAll('.qs textarea')].map(t=>t.value.trim()).filter(Boolean) }; }
