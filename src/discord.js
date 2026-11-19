@@ -13,7 +13,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function dapi(env, method, path, body, opts = {}) {
   const headers = { Authorization: `Bot ${env.DISCORD_TOKEN}`, 'User-Agent': 'BluelineWhitelist (https://dmpforge.co.uk, 1.0)' };
   let payload;
-  if (body !== undefined) {
+  if (opts.files?.length) {
+    payload = toMultipart(body, opts.files);
+  } else if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
     payload = JSON.stringify(body);
   }
@@ -38,13 +40,19 @@ export async function dapi(env, method, path, body, opts = {}) {
   throw new Error('Discord rate limit exceeded');
 }
 
-export async function webhookPost(url, body) {
+// Build a multipart body (JSON payload + text file attachments) — FormData is rebuilt per attempt
+function toMultipart(body, files) {
+  const fd = new FormData();
+  fd.append('payload_json', JSON.stringify({ ...body, attachments: files.map((f, i) => ({ id: i, filename: f.name })) }));
+  files.forEach((f, i) => fd.append(`files[${i}]`, new Blob([f.content], { type: 'text/plain; charset=utf-8' }), f.name));
+  return fd;
+}
+
+export async function webhookPost(url, body, files) {
   for (let i = 0; i < 4; i++) {
-    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'wait=true', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'wait=true', files?.length
+      ? { method: 'POST', body: toMultipart(body, files) }
+      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (r.status === 429) {
       const j = await r.json().catch(() => ({}));
       await sleep(Math.min(10, j.retry_after || 1) * 1000 + 100);

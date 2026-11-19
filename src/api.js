@@ -1,6 +1,6 @@
 import { dapi, hasPerm, PERM, displayName, avatarUrl, DENY_REASONS } from './discord.js';
 import { getConfig, saveConfig, listTypes, getType, addLog, now, parse } from './db.js';
-import { decide, resetUser, postPanel, canApprove, canReset, submissionEmbeds, backfillReview, submitCompletedSessions } from './flow.js';
+import { decide, resetUser, postPanel, canApprove, canReset, backfillReview, submitCompletedSessions } from './flow.js';
 
 const json = (o, status = 200, headers = {}) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 const err = (msg, status = 400) => json({ error: msg }, status);

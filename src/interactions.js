@@ -241,7 +241,7 @@ export async function handleInteraction(request, env, ctx) {
 function deferredApply(i, env, ctx, user, typeId) {
   ctx.waitUntil((async () => {
     try {
-      const r = await startApplication(env, i.guild_id, typeId, user);
+      const r = await startApplication(env, i.guild_id, typeId, user, i.member?.roles);
       await editOriginal(env, i, { content: (r.ok ? '' : '❌ ') + r.reason });
     } catch (e) {
       console.log('apply error', e.stack);

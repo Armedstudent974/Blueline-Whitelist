@@ -24,13 +24,32 @@ export function canReset(cfg, roles, permissions) {
 }
 
 // ---------- cooldown ----------
-export async function checkEligibility(env, guildId, typeId, userId) {
+// Approved applicants may only apply again if they currently hold the application's
+// "role removed on approval" (e.g. Blueline Non-Whitelist) — i.e. they were un-whitelisted.
+async function approvedBlock(env, guildId, typeId, userId, roles) {
+  const approved = await env.DB.prepare(
+    `SELECT id FROM applications WHERE guild_id=? AND user_id=? AND app_type_id=? AND status='approved' LIMIT 1`
+  ).bind(guildId, userId, typeId).first();
+  if (!approved) return null;
+  const type = await getType(env, typeId);
+  if (type?.remove_role_id) {
+    if (!roles) {
+      try { roles = (await dapi(env, 'GET', `/guilds/${guildId}/members/${userId}`)).roles || []; } catch { roles = []; }
+    }
+    if (roles.includes(type.remove_role_id)) return null;
+  }
+  return '✅ Your application has already been **approved** — you can only apply again if your whitelist is removed.';
+}
+
+export async function checkEligibility(env, guildId, typeId, userId, roles) {
   const cfg = await getConfig(env, guildId);
   const hours = cfg.cooldown_hours ?? 48;
   const pending = await env.DB.prepare(
     `SELECT id FROM applications WHERE guild_id=? AND user_id=? AND app_type_id=? AND status='submitted' AND cooldown_reset=0 LIMIT 1`
   ).bind(guildId, userId, typeId).first();
   if (pending) return { ok: false, reason: 'You already have an application waiting to be reviewed. Please wait for staff to review it.' };
+  const blocked = await approvedBlock(env, guildId, typeId, userId, roles);
+  if (blocked) return { ok: false, reason: blocked };
   if (hours > 0) {
     const since = now() - hours * 3600 * 1000;
     const recent = await env.DB.prepare(
@@ -45,13 +64,13 @@ export async function checkEligibility(env, guildId, typeId, userId) {
 }
 
 // ---------- start ----------
-export async function startApplication(env, guildId, typeId, user) {
+export async function startApplication(env, guildId, typeId, user, roles) {
   const type = await getType(env, typeId);
   if (!type || type.guild_id !== guildId) return { ok: false, reason: 'That application no longer exists.' };
   if (!type.enabled) return { ok: false, reason: `**${type.name}** applications are currently closed.` };
   if (!type.questions.length) return { ok: false, reason: 'This application has no questions configured yet. Please tell a staff member.' };
 
-  const elig = await checkEligibility(env, guildId, typeId, user.id);
+  const elig = await checkEligibility(env, guildId, typeId, user.id, roles);
   if (!elig.ok) return elig;
 
   const guild = await env.DB.prepare('SELECT name FROM guilds WHERE id=?').bind(guildId).first();
@@ -106,38 +125,53 @@ const REVIEW_BUTTONS = [{
   ],
 }];
 
-// Sends the "review your answers" screen. Discord limits a message to 6000 characters of embeds,
-// so long applications are split across several messages; the buttons go on the last one.
+// Sends the "review your answers" screen as ONE message (long answers are shortened in the embed
+// and the full text is attached as a file in the same message).
 async function sendReview(env, channelId, answers, typeName) {
-  const embeds = buildQAEmbeds(answers, {
+  const msg = buildQAMessage(answers, {
     color: AMBER,
     title: `Review your ${appLabel(typeName)}`,
     description: 'Please check your answers below. Choose **Submit** to send it to staff or **Correct** to change an answer.',
-  });
-  for (let i = 0; i < embeds.length; i++) {
-    const last = i === embeds.length - 1;
-    await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: [embeds[i]], ...(last ? { components: REVIEW_BUTTONS } : {}) });
-  }
+  }, { fileName: 'your-application.txt', fileTitle: `Your ${appLabel(typeName)}` });
+  await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: msg.embeds, components: REVIEW_BUTTONS }, { files: msg.files });
 }
 
-// Builds one or more embeds holding Q&A fields, respecting Discord limits
-export function buildQAEmbeds(answers, head) {
+// Discord limits: 6000 chars across all embeds in a message, 25 fields per embed, 1024 per field value, 10 embeds.
+const MSG_BUDGET = 5600;          // keep headroom for the "Status" line added on approve/deny
+const TRUNC_NOTE = '… *(full answer in attached file)*';
+
+// Builds a single Discord message holding every question + answer. If everything does not fit,
+// answers are shortened fairly (longest ones first) and the complete text is attached as a .txt file.
+export function buildQAMessage(answers, head, { fileName = 'application.txt', fileTitle = 'Application' } = {}) {
+  const names = answers.map((x, i) => trunc(`${i + 1}. ${x.q}`, 250));
+  const full = answers.map((x) => String(x.a || '*No answer*'));
+  const headSize = (head.title?.length || 0) + (head.description?.length || 0) + (head.author?.name?.length || 0) + (head.footer?.text?.length || 0) + 160;
+  let budget = MSG_BUDGET - headSize - names.reduce((n, x) => n + x.length, 0);
+  const total = full.reduce((n, a) => n + Math.min(a.length, 1024), 0);
+  let values = full.map((a) => trunc(a, 1024));
+  let truncated = total > budget || full.some((a) => a.length > 1024);
+  if (total > budget) {
+    // find the largest per-answer cap that fits the budget
+    let lo = 20, hi = 1024;
+    const cost = (c) => full.reduce((n, a) => n + (a.length > c ? c : a.length), 0);
+    while (lo < hi) { const mid = Math.ceil((lo + hi) / 2); if (cost(mid) <= budget) lo = mid; else hi = mid - 1; }
+    const cap = lo;
+    values = full.map((a) => (a.length > cap ? a.slice(0, Math.max(1, cap - TRUNC_NOTE.length)).trimEnd() + TRUNC_NOTE : a));
+  }
+  const fields = names.map((name, i) => ({ name, value: values[i] || '\u200b' }));
   const embeds = [];
-  let cur = { ...head, fields: [] };
-  let size = (head.title?.length || 0) + (head.description?.length || 0) + 100;
-  answers.forEach((x, i) => {
-    const name = trunc(`${i + 1}. ${x.q}`, 256);
-    const value = trunc(x.a || '*No answer*', 1024);
-    if (cur.fields.length >= 25 || size + name.length + value.length > 5500) {
-      embeds.push(cur);
-      cur = { color: head.color, fields: [] };
-      size = 0;
-    }
-    cur.fields.push({ name, value });
-    size += name.length + value.length;
-  });
-  embeds.push(cur);
-  return embeds;
+  for (let i = 0; i < fields.length || i === 0; i += 25) {
+    embeds.push(i === 0 ? { ...head, fields: fields.slice(0, 25) } : { color: head.color, fields: fields.slice(i, i + 25) });
+    if (embeds.length >= 10) break;
+  }
+  let files = [];
+  if (truncated) {
+    embeds[0].description = `${embeds[0].description ? embeds[0].description + '\n\n' : ''}📎 Some answers were long, so they're shortened here — the **full application is attached** to this message.`;
+    const text = `${fileTitle}\n${'='.repeat(Math.min(60, fileTitle.length))}\n\n` +
+      answers.map((x, i) => `${i + 1}. ${x.q}\n${x.a || '(no answer)'}\n`).join('\n');
+    files = [{ name: fileName, content: text }];
+  }
+  return { embeds, files };
 }
 
 // ---------- DM message handler (called from gateway) ----------
@@ -231,6 +265,13 @@ export async function onSubmit(env, user) {
   const answers = parse(s.answers, []);
   if (answers.some((x) => !x.a)) return { content: 'Please answer every question before submitting.', components: [] };
 
+  // never resubmit for someone who has already been approved for this application
+  const already = await approvedBlock(env, s.guild_id, s.app_type_id, user.id);
+  if (already) {
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id).run();
+    return { content: already + ' This application was not sent again.', embeds: [], components: [] };
+  }
+
   // delete session first to stop double submits
   const del = await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id).run();
   if (!del.meta?.changes) return { content: 'This application was already submitted.', embeds: [], components: [] };
@@ -246,7 +287,7 @@ export async function onSubmit(env, user) {
   const appId = ins.meta.last_row_id;
   await addLog(env, { guild_id: s.guild_id, application_id: appId, action: 'submitted', actor_id: user.id, actor_name: name, target_id: user.id, detail: type?.name });
 
-  const embeds = submissionEmbeds({ id: appId, app_name: type?.name || 'Application', user_id: user.id, username: name, avatar_url: avatar, answers, created_at: now() });
+  const msg = submissionMessage({ id: appId, app_name: type?.name || 'Application', user_id: user.id, username: name, avatar_url: avatar, answers, created_at: now() });
 
   // 1) webhook (as requested)
   const hook = cfg.webhook_url || env.DEFAULT_WEBHOOK_URL;
@@ -254,12 +295,12 @@ export async function onSubmit(env, user) {
   const sameChannel = !!(hook && cfg.review_channel_id && (await webhookChannelId(hook)) === cfg.review_channel_id);
   if (hook && !sameChannel) {
     // ping roles where staff review: the review channel if set, otherwise the webhook post
-    try { await postEmbedsToWebhook(hook, embeds, cfg.review_channel_id ? null : pingFor(cfg, name)); } catch (e) { console.log('webhook failed', e.message); }
+    try { await postToWebhook(hook, msg, cfg.review_channel_id ? null : pingFor(cfg, name)); } catch (e) { console.log('webhook failed', e.message); }
   }
   // 2) review channel with Approve / Deny buttons
   if (cfg.review_channel_id) {
     try {
-      const m = await postReviewMessage(env, cfg.review_channel_id, embeds, appId, pingFor(cfg, name));
+      const m = await postReviewMessage(env, cfg.review_channel_id, msg, appId, pingFor(cfg, name));
       await env.DB.prepare('UPDATE applications SET review_channel_id=?, review_message_id=? WHERE id=?').bind(cfg.review_channel_id, m.id, appId).run();
     } catch (e) { console.log('review post failed', e.message); }
   }
@@ -288,9 +329,9 @@ export async function submitCompletedSessions(env, guildId) {
   return done;
 }
 
-export function submissionEmbeds(app) {
+export function submissionMessage(app) {
   const answers = typeof app.answers === 'string' ? parse(app.answers, []) : app.answers;
-  return buildQAEmbeds(answers, {
+  return buildQAMessage(answers, {
     color: BRAND,
     author: { name: app.username, icon_url: app.avatar_url },
     title: `${appLabel(app.app_name)} #${app.id}`,
@@ -298,7 +339,7 @@ export function submissionEmbeds(app) {
     description: `**Applicant:** <@${app.user_id}>\n**Discord:** ${app.username}\n**User ID:** \`${app.user_id}\`\n**Submitted:** <t:${Math.floor(app.created_at / 1000)}:f>`,
     timestamp: new Date(app.created_at).toISOString(),
     footer: { text: 'Blueline Whitelist Applications' },
-  });
+  }, { fileName: `application-${app.id}.txt`, fileTitle: `${appLabel(app.app_name)} #${app.id} - ${app.username} (${app.user_id})` });
 }
 
 // Which channel a webhook posts into (public info on the webhook URL, no auth needed)
@@ -325,12 +366,8 @@ function pingFor(cfg, name) {
   };
 }
 
-async function postEmbedsToWebhook(url, embeds, ping) {
-  // max 10 embeds & 6000 chars per message — send each embed group separately to be safe
-  for (let i = 0; i < embeds.length; i++) {
-    const p = i === 0 && ping ? ping : { allowed_mentions: { parse: [] } };
-    await webhookPost(url, { username: 'Applications', embeds: [embeds[i]], ...p });
-  }
+async function postToWebhook(url, msg, ping) {
+  await webhookPost(url, { username: 'Applications', embeds: msg.embeds, ...(ping || { allowed_mentions: { parse: [] } }) }, msg.files);
 }
 
 function reviewButtons(appId) {
@@ -343,15 +380,8 @@ function reviewButtons(appId) {
   }];
 }
 
-async function postReviewMessage(env, channelId, embeds, appId, ping) {
-  let first;
-  for (let i = 0; i < embeds.length; i++) {
-    const last = i === embeds.length - 1;
-    const p = i === 0 && ping ? ping : { allowed_mentions: { parse: [] } };
-    const m = await dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: [embeds[i]], components: last ? reviewButtons(appId) : [], ...p });
-    if (last) first = m;
-  }
-  return first;
+async function postReviewMessage(env, channelId, msg, appId, ping) {
+  return dapi(env, 'POST', `/channels/${channelId}/messages`, { embeds: msg.embeds, components: reviewButtons(appId), ...(ping || { allowed_mentions: { parse: [] } }) }, { files: msg.files });
 }
 
 // Post Approve/Deny messages for pending applications that don't have one yet (e.g. review channel set later)
@@ -364,7 +394,7 @@ export async function backfillReview(env, guildId) {
   let n = 0;
   for (const app of results) {
     try {
-      const m = await postReviewMessage(env, cfg.review_channel_id, submissionEmbeds(app), app.id, pingFor(cfg, app.username));
+      const m = await postReviewMessage(env, cfg.review_channel_id, submissionMessage(app), app.id, pingFor(cfg, app.username));
       await env.DB.prepare('UPDATE applications SET review_channel_id=?, review_message_id=? WHERE id=?').bind(cfg.review_channel_id, m.id, app.id).run();
       n++;
     } catch (e) { console.log('backfill failed', e.message); }
@@ -456,7 +486,8 @@ export async function decide(env, appId, decision, reasonIdx, actor) {
         .then((m) => {
           const e = m.embeds?.[0] || {};
           e.color = approved ? GREEN : RED;
-          e.fields = [...(e.fields || []), { name: 'Status', value: approved ? `✅ Approved by <@${actor.id}>` : `⛔ Denied by <@${actor.id}>\n**Reason:** ${reason}` }];
+          const status = approved ? `✅ **Approved** by <@${actor.id}>` : `⛔ **Denied** by <@${actor.id}> — ${reason}`;
+          e.description = `${status}\n\n${e.description || ''}`.slice(0, 4096);
           return dapi(env, 'PATCH', `/channels/${app.review_channel_id}/messages/${app.review_message_id}`, { embeds: [e, ...(m.embeds || []).slice(1)], components: [] });
         })
         .catch((e) => console.log('review edit fail', e.message))
