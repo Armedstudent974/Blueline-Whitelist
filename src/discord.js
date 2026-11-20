@@ -11,6 +11,7 @@ export const PERM = { ADMIN: 0x8n, MANAGE_GUILD: 0x20n };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function dapi(env, method, path, body, opts = {}) {
+  brand(body);
   const headers = { Authorization: `Bot ${env.DISCORD_TOKEN}`, 'User-Agent': 'BluelineWhitelist (https://dmpforge.co.uk, 1.0)' };
   let payload;
   if (opts.files?.length) {
@@ -49,6 +50,7 @@ function toMultipart(body, files) {
 }
 
 export async function webhookPost(url, body, files) {
+  brand(body);
   for (let i = 0; i < 4; i++) {
     const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'wait=true', files?.length
       ? { method: 'POST', body: toMultipart(body, files) }
@@ -121,6 +123,7 @@ export async function sendDM(env, userId, body) {
 
 // Edit the original response of an interaction (after a deferred response)
 export function editOriginal(env, interaction, body) {
+  brand(body);
   return fetch(`${API}/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -129,9 +132,23 @@ export function editOriginal(env, interaction, body) {
 }
 
 export function followup(env, interaction, body) {
+  brand(body);
   return fetch(`${API}/webhooks/${interaction.application_id}/${interaction.token}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+// Credit line added to the footer of every embed this bot sends.
+export const CREDIT = 'Developed & Maintained by HazyHaven';
+export function brand(body) {
+  if (!body || typeof body !== 'object' || !Array.isArray(body.embeds)) return body;
+  for (const e of body.embeds) {
+    if (!e || typeof e !== 'object') continue;
+    const text = (e.footer && e.footer.text) || '';
+    if (text.includes(CREDIT)) continue;
+    e.footer = { ...(e.footer || {}), text: (text ? `${text} • ${CREDIT}` : CREDIT).slice(0, 2048) };
+  }
+  return body;
 }

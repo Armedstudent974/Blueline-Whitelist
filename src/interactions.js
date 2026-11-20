@@ -1,4 +1,4 @@
-import { verifyRequest, editOriginal, followup, displayName, trunc, dapi } from './discord.js';
+import { verifyRequest, editOriginal, followup, displayName, trunc, dapi, brand } from './discord.js';
 import { getConfig, saveConfig, listTypes, getType, addLog, now } from './db.js';
 import {
   startApplication, onCorrect, onCorrectPick, onCancel, onSubmit, decide, denyReasonMenu,
@@ -84,7 +84,7 @@ export const COMMANDS = [
   { name: 'dashboard', description: 'Get the link to the applications dashboard', dm_permission: false },
 ];
 
-const json = (o) => new Response(JSON.stringify(o), { headers: { 'Content-Type': 'application/json' } });
+const json = (o) => { if (o && o.data) brand(o.data); return new Response(JSON.stringify(o), { headers: { 'Content-Type': 'application/json' } }); };
 const reply = (content, ephemeral = true, extra = {}) => json({ type: 4, data: { content, flags: ephemeral ? EPHEMERAL : 0, allowed_mentions: { parse: [] }, ...extra } });
 
 export async function handleInteraction(request, env, ctx) {
