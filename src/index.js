@@ -1,7 +1,7 @@
 import { handleInteraction } from './interactions.js';
 import { handleAuth, handleApi, getSession, inviteUrl } from './api.js';
 import { Gateway, GatewayEvents } from './gateway.js';
-import { submitCompletedSessions } from './flow.js';
+import { submitCompletedSessions, postPanel } from './flow.js';
 import LANDING from './landing.html';
 import DASHBOARD from './dashboard.html';
 
@@ -50,6 +50,16 @@ export default {
       const done = await submitCompletedSessions(env, row.v);
       await env.DB.prepare("INSERT INTO kv (k, v) VALUES ('force_submit_result', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(new Date().toISOString() + ' ' + JSON.stringify(done)).run();
     })().catch((e) => console.log('force submit error', e.message)));
+    // one-shot admin action: refresh posted panels (set kv 'refresh_panels' = comma-separated panel ids)
+    ctx.waitUntil((async () => {
+      const row = await env.DB.prepare("SELECT v FROM kv WHERE k='refresh_panels'").first();
+      if (!row?.v) return;
+      await env.DB.prepare("DELETE FROM kv WHERE k='refresh_panels'").run();
+      for (const id of String(row.v).split(',').map(Number).filter(Boolean)) {
+        const panel = await env.DB.prepare('SELECT * FROM panels WHERE id=?').bind(id).first();
+        if (panel?.channel_id) await postPanel(env, panel).catch((e) => console.log('refresh panel', id, e.message));
+      }
+    })().catch((e) => console.log('refresh panels error', e.message)));
     // abandon DM questionnaires idle for more than 7 days
     ctx.waitUntil(env.DB.prepare('DELETE FROM sessions WHERE started_at < ?').bind(Date.now() - 7 * 86400 * 1000).run());
   },

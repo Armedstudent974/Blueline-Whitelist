@@ -297,7 +297,7 @@ function panelCard(p){
     <label>Channel</label><select data-f="channel_id" onchange="preview(${p.id})">${chanOpts(p.channel_id)}</select>
     <label>Title</label><input data-f="title" value="${esc(p.title)}" oninput="preview(${p.id})">
     <label>Description</label><textarea data-f="description" oninput="preview(${p.id})">${esc(p.description)}</textarea>
-    <div class="grid2"><div><label>Colour</label><input data-f="color" type="color" value="${esc(p.color||'#5865F2')}" oninput="preview(${p.id})" style="height:42px;padding:4px"></div><div><label>Image URL (optional)</label><input data-f="image_url" value="${esc(p.image_url||'')}"></div></div>
+    <div class="grid2"><div><label>Colour</label><input data-f="color" type="color" value="${esc(p.color||'#2f7bff')}" oninput="preview(${p.id})" style="height:42px;padding:4px"></div><div><label>Image URL (optional)</label><input data-f="image_url" value="${esc(p.image_url||'')}"></div></div>
     <label>Applications on this panel</label>${S.g.types.map(t=>`<label class="switch"><input type="checkbox" data-t="${t.id}" ${p.app_type_ids.includes(t.id)?'checked':''} onchange="preview(${p.id})"> ${esc(t.name)}</label>`).join('<br>')||'<small style="color:var(--mute)">Create an application first.</small>'}
   </div><div><label>Preview</label><div class="preview" id="pv${p.id}"></div>
     <p style="color:var(--mute);font-size:12px">${p.message_id?'✅ Posted — saving &amp; posting will update the existing message.':'Not posted yet.'}</p></div></div>
@@ -305,7 +305,7 @@ function panelCard(p){
 }
 function readPanel(id){ const c=$('#pc'+id); const f=(k)=>c.querySelector(`[data-f=${k}]`).value; return { channel_id:f('channel_id'), title:f('title'), description:f('description'), color:f('color'), image_url:f('image_url'), app_type_ids:[...c.querySelectorAll('[data-t]:checked')].map(x=>+x.dataset.t) }; }
 function preview(id){ const p=readPanel(id); $('#pv'+id).innerHTML=`<div class="emb" style="border-color:${esc(p.color)}"><b>${esc(p.title)}</b><p>${esc(p.description)}</p></div><div class="pbtns">${p.app_type_ids.map(t=>S.g.types.find(x=>x.id===t)).filter(Boolean).map(t=>`<span class="pbtn s${t.button_style}" style="${t.enabled?'':'opacity:.5'}">${esc(t.name)}</span>`).join('')}</div>`; }
-async function newPanel(){ try{ await api(`/guilds/${S.gid}/panels`,{method:'POST',body:{title:'Applications',description:'Click a button below to apply. The questions will be sent to your DMs — make sure your DMs are open!',color:'#2f7bff',app_type_ids:S.g.types.map(t=>t.id)}}); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
+async function newPanel(){ try{ await api(`/guilds/${S.gid}/panels`,{method:'POST',body:{app_type_ids:S.g.types.map(t=>t.id)}}); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
 async function savePanel(id,post){ try{ await api(`/guilds/${S.gid}/panels/${id}`,{method:'PUT',body:readPanel(id)}); if(post) await api(`/guilds/${S.gid}/panels/${id}/post`,{method:'POST'}); toast(post?'Panel posted to Discord':'Saved'); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
 async function delPanel(id){ if(!confirm('Delete this panel (and its Discord message)?')) return; try{ await api(`/guilds/${S.gid}/panels/${id}`,{method:'DELETE'}); selectGuild(S.gid,'panels'); }catch(e){ toast(e.message,true); } }
 

@@ -500,6 +500,15 @@ export async function resetUser(env, guildId, userId, actor) {
 }
 
 // ---------- panels ----------
+// Defaults (taken from the original Blueline Britain whitelist panel) used for any
+// field left blank when a panel is created with /panel or from the dashboard.
+export const PANEL_DEFAULTS = {
+  title: 'Blueline Britain - Whitelist Applications',
+  description: 'Want to join **Blueline Britain**? Click **Apply** below to start your whitelist application.\n\n📬 The questions will be sent to your **DMs** one at a time - make sure your DMs are open.\n✏️ You can correct any answer before you submit.\n🔞 Minimum age: **16+**\n⏳ You can only apply once every **48 hours**.',
+  color: '#2f7bff',
+  image_url: 'https://media.discordapp.net/attachments/1527194711918379019/1562966791964069978/myLogo.png?ex=6afe30c1&is=6afcdf41&hm=395cf700dd4303fccefce1e2552bdd95a24b69017c2a416a987aa59f037404d4&format=webp&quality=lossless&width=384&height=349',
+};
+const blank = (v) => v == null || String(v).trim() === '';
 export async function buildPanelMessage(env, panel) {
   const ids = parse(panel.app_type_ids, []);
   let types = [];
@@ -512,10 +521,10 @@ export async function buildPanelMessage(env, panel) {
   for (let i = 0; i < buttons.length; i += 5) rows.push({ type: 1, components: buttons.slice(i, i + 5) });
   return {
     embeds: [{
-      color: colorInt(panel.color),
-      title: trunc(panel.title || 'Applications', 256),
-      description: trunc(panel.description || 'Click a button below to start an application. The questions will be sent to your DMs.', 4000),
-      ...(panel.image_url ? { image: { url: panel.image_url } } : {}),
+      color: colorInt(blank(panel.color) ? PANEL_DEFAULTS.color : panel.color),
+      title: trunc(blank(panel.title) ? PANEL_DEFAULTS.title : String(panel.title).trim(), 256),
+      description: trunc(blank(panel.description) ? PANEL_DEFAULTS.description : panel.description, 4000),
+      image: { url: blank(panel.image_url) ? PANEL_DEFAULTS.image_url : panel.image_url },
       footer: { text: 'Blueline Whitelist Applications' },
     }],
     components: rows,

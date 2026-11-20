@@ -2,7 +2,7 @@ import { verifyRequest, editOriginal, followup, displayName, trunc, dapi, brand 
 import { getConfig, saveConfig, listTypes, getType, addLog, now } from './db.js';
 import {
   startApplication, onCorrect, onCorrectPick, onCancel, onSubmit, decide, denyReasonMenu,
-  resetUser, canApprove, canReset, postPanel, backfillReview,
+  resetUser, canApprove, canReset, postPanel, backfillReview, PANEL_DEFAULTS,
 } from './flow.js';
 
 const EPHEMERAL = 64;
@@ -66,7 +66,7 @@ export const COMMANDS = [
       { type: 7, name: 'channel', description: 'Channel to post the panel in', required: true, channel_types: [0, 5] },
       { type: 3, name: 'title', description: 'Panel title', required: false, max_length: 256 },
       { type: 3, name: 'description', description: 'Panel text', required: false, max_length: 2000 },
-      { type: 3, name: 'color', description: 'Hex colour e.g. #5865F2', required: false },
+      { type: 3, name: 'color', description: 'Hex colour e.g. #2f7bff (default)', required: false },
     ],
   },
   {
@@ -172,8 +172,8 @@ export async function handleInteraction(request, env, ctx) {
       if (name === 'panel') {
         const types = await listTypes(env, i.guild_id);
         if (!types.length) return reply('❌ Create an application first with `/application create`.');
-        const r = await env.DB.prepare('INSERT INTO panels (guild_id, channel_id, title, description, color, app_type_ids, created_at) VALUES (?,?,?,?,?,?,?)')
-          .bind(i.guild_id, opts.channel, opts.title || 'Applications', opts.description || 'Click a button below to apply. The questions will be sent to your DMs.', opts.color || '#5865F2', JSON.stringify(types.map((t) => t.id)), now()).run();
+        const r = await env.DB.prepare('INSERT INTO panels (guild_id, channel_id, title, description, color, image_url, app_type_ids, created_at) VALUES (?,?,?,?,?,?,?,?)')
+          .bind(i.guild_id, opts.channel, opts.title || PANEL_DEFAULTS.title, opts.description || PANEL_DEFAULTS.description, opts.color || PANEL_DEFAULTS.color, PANEL_DEFAULTS.image_url, JSON.stringify(types.map((t) => t.id)), now()).run();
         const panel = await env.DB.prepare('SELECT * FROM panels WHERE id=?').bind(r.meta.last_row_id).first();
         ctx.waitUntil((async () => {
           try { await postPanel(env, panel); await editOriginal(env, i, { content: `✅ Panel posted in <#${opts.channel}>.` }); }

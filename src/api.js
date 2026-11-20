@@ -1,6 +1,6 @@
 import { dapi, hasPerm, PERM, displayName, avatarUrl, DENY_REASONS } from './discord.js';
 import { getConfig, saveConfig, listTypes, getType, addLog, now, parse } from './db.js';
-import { decide, resetUser, postPanel, canApprove, canReset, backfillReview, submitCompletedSessions } from './flow.js';
+import { decide, resetUser, postPanel, canApprove, canReset, backfillReview, submitCompletedSessions, PANEL_DEFAULTS } from './flow.js';
 
 const json = (o, status = 200, headers = {}) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 const err = (msg, status = 400) => json({ error: msg }, status);
@@ -232,10 +232,10 @@ export async function handleApi(req, env, url) {
       if (!a.manage) return err('Manage Server permission required', 403);
       const clean = (b) => ({
         channel_id: /^\d+$/.test(b.channel_id || '') ? b.channel_id : null,
-        title: String(b.title || 'Applications').slice(0, 256),
-        description: String(b.description || '').slice(0, 4000),
-        color: /^#?[0-9a-f]{6}$/i.test(b.color || '') ? (b.color.startsWith('#') ? b.color : '#' + b.color) : '#5865F2',
-        image_url: /^https:\/\//.test(b.image_url || '') ? b.image_url : null,
+        title: String(String(b.title || '').trim() || PANEL_DEFAULTS.title).slice(0, 256),
+        description: String(String(b.description || '').trim() ? b.description : PANEL_DEFAULTS.description).slice(0, 4000),
+        color: /^#?[0-9a-f]{6}$/i.test(b.color || '') ? (b.color.startsWith('#') ? b.color : '#' + b.color) : PANEL_DEFAULTS.color,
+        image_url: /^https:\/\//.test(b.image_url || '') ? b.image_url : PANEL_DEFAULTS.image_url,
         app_type_ids: (b.app_type_ids || []).map(Number).filter(Boolean),
       });
       if (method === 'POST' && !p[3]) {
